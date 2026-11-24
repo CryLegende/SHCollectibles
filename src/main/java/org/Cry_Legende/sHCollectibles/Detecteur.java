@@ -87,6 +87,13 @@ final class Detecteur implements Listener {
         /** Jour où la collection a été comptée. */
         LocalDate day;
 
+        /** « monde x y z » du prochain point de la flèche. */
+        String next() {
+            String[] p = place.split(" ");
+            int at = p.length >= 7 ? 4 : 1;
+            return p.length < 4 ? place : p[0] + " " + p[at] + " " + p[at + 1] + " " + p[at + 2];
+        }
+
         Active(Collection collection, int slot) {
             this.collection = collection;
             this.slot = slot;

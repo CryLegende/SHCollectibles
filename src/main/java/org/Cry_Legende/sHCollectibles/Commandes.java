@@ -188,7 +188,7 @@ final class Commandes implements TabExecutor {
                     "numero", a.target < 0 ? "-" : Integer.toString(a.target),
                     "distance", a.target < 0 ? "-" : Long.toString(Math.round(a.distance)),
                     "etape", a.target < 0 ? "-" : a.onPath ? m.text("mots.chemin") : a.step + "/" + a.steps,
-                    "lieu", a.place.isEmpty() ? m.text(a.target < 0 ? "mots.ailleurs" : "mots.tout-pres") : a.place);
+                    "lieu", a.place.isEmpty() ? m.text(a.target < 0 ? "mots.ailleurs" : "mots.tout-pres") : a.next());
         }
         return true;
     }
