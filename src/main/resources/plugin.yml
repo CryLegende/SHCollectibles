@@ -1,0 +1,34 @@
+name: SHDetecteur
+version: '${project.version}'
+main: org.Cry_Legende.sHDetecteur.SHDetecteur
+api-version: '1.20'
+author: Cry_Legende
+description: Détecteur de collectibles TheSearch, une flèche vers le prochain puis un petit bruit quand il est proche.
+depend:
+  - TheSearch
+  - PlaceholderAPI
+
+commands:
+  detecteur:
+    description: Active ou arrête le détecteur d'une collection.
+    usage: /<command> [collection]
+  shdetecteur:
+    description: Administration du détecteur (reload, info).
+    usage: /<command> <reload|info>
+
+permissions:
+  shdetecteur.use:
+    description: Se servir du détecteur (/detecteur).
+    default: op
+  shdetecteur.admin:
+    description: Toutes les sous-commandes de /shdetecteur.
+    default: op
+    children:
+      shdetecteur.admin.reload: true
+      shdetecteur.admin.info: true
+  shdetecteur.admin.reload:
+    description: Recharger config.yml et messages.yml.
+    default: op
+  shdetecteur.admin.info:
+    description: Voir le détecteur d'un joueur.
+    default: op

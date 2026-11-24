@@ -1,0 +1,36 @@
+# ============================================================================
+#  SHDetecteur : messages du chat, barre d'action et lignes de menu
+# ============================================================================
+#  Codes couleur & et &#RRGGBB acceptés. Format SkyHand pour le chat : préfixe
+#  de la couleur du type, texte en &7, mots importants dans la couleur du type.
+#    &a succès · &e information · &6 avertissement · &c erreur
+#  Un message vide n'est pas envoyé.
+#
+#  {nom} : nom de la collection, dans sa couleur · {objet} : nom d'un collectible,
+#  dans sa couleur · {couleur} : couleur de la collection
+# ============================================================================
+
+chat:
+  active: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis ce &abruit&7."
+  arrete: "&7&l« &e&lSH &8&l» &7Détecteur {nom} &earrêté&7."
+  aucun: "&7&l« &e&lSH &8&l» &7Choisissez une collection dans &e/collections&7."
+  complete: "&7&l« &e&lSH &8&l» &7Votre collection {nom} &7est déjà &ecomplète&7."
+  anciennete: "&7&l« &c&lSH &8&l» &7Vous n'avez pas assez d'ancienneté &8(/playtime)"
+  indisponible: "&7&l« &c&lSH &8&l» &7La collection {nom} &7n'est &cpas disponible &7pour l'instant."
+  joueurs-seulement: "&7&l« &c&lSH &8&l» &7Commande réservée aux joueurs."
+  permission: "&7&l« &c&lSH &8&l» &7Vous n'avez pas la permission."
+  utilisation: "&7&l« &e&lSH &8&l» &7Tapez &e{commandes}&7."
+  joueur-inconnu: "&7&l« &c&lSH &8&l» &7Joueur &c{joueur} &7introuvable ou pas connecté."
+  info: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur}&7, {nom} &7n°&e{numero} &7à &e{distance} blocs &8({lieu})"
+  info-arrete: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur} &7arrêté."
+  reload-ok: "&7&l« &a&lSH &8&l» &7Configuration de &aSHDetecteur &7rechargée."
+  reload-erreur: "&7&l« &c&lSH &8&l» &7{fichier} invalide, rien n'a changé. &c{erreur}"
+
+# Montré une fois par collectible, quand la flèche disparaît
+barre-proche: "{objet} &ftout près, &7suivez le bruit"
+
+# %shdetecteur_menu_<collection>%
+menu:
+  activer: "&8&o(( {couleur}&oClic Gauche &f&opour activer le {couleur}&odétecteur &8&o))"
+  arreter: "&8&o(( {couleur}&oClic Gauche &f&opour arrêter le {couleur}&odétecteur &8&o))"
+  complete: "&8&o(( &f&oCollection &a&ocomplète &8&o))"
