@@ -57,6 +57,8 @@ class CollectionTest {
         assertEquals("thesearch.search.Orbes", c.permission());
         assertEquals(2, c.total());
         assertEquals(0x00FFFF, c.particles().rgb());
+        assertEquals(0x55FF55, c.trailColor(), "couleur du jeu");
+        assertEquals("", c.items().get(1).zone());
         Collection.Item one = c.items().get(1);
         assertEquals(new Lieu("spawn", -8.5, 42.5, 54.5), one.center());
         assertEquals(2, one.steps().size());

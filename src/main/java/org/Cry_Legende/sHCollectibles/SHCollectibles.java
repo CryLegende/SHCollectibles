@@ -13,6 +13,8 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -32,7 +34,8 @@ public final class SHCollectibles extends JavaPlugin {
     private Recherche recherche;
     private Detecteur detecteur;
     private Particules particules;
-    private BukkitTask particleTask;
+    private Cartes cartes;
+    private final List<BukkitTask> periodic = new ArrayList<>();
     private final List<Expansion> expansions = new ArrayList<>();
 
     @Override
@@ -40,6 +43,9 @@ public final class SHCollectibles extends JavaPlugin {
         saveDefaultConfig();
         if (!new File(getDataFolder(), "messages.yml").exists()) {
             saveResource("messages.yml", false);
+        }
+        if (!new File(getDataFolder(), "zones.yml").exists()) {
+            saveResource("zones.yml", false);
         }
         if (!collectionsFolder().exists()) {
             saveResource("collections/exemple.yml", false);
@@ -59,7 +65,7 @@ public final class SHCollectibles extends JavaPlugin {
         hc.setJdbcUrl("jdbc:mariadb://" + db.host() + ":" + db.port() + "/" + db.database());
         hc.setUsername(db.user());
         hc.setPassword(db.password());
-        hc.setMaximumPoolSize(3);
+        hc.setMaximumPoolSize(db.connections());
         hc.setMinimumIdle(1);
         hc.setConnectionTimeout(5000);
         try {
@@ -75,6 +81,7 @@ public final class SHCollectibles extends JavaPlugin {
         effets = new Effets(this);
         recherche = new Recherche(this, effets);
         recherche.index(settings);
+        cartes = new Cartes(this);
         detecteur = new Detecteur(this);
         particules = new Particules(this);
         for (var listener : List.of(joueurs, effets, recherche, detecteur)) {
@@ -93,14 +100,19 @@ public final class SHCollectibles extends JavaPlugin {
         expansions.forEach(Expansion::register);
         joueurs.refreshCompletions();
         joueurs.loadAll();
-        Bukkit.getScheduler().runTaskTimer(this, detecteur::tick, 20L, Detecteur.PERIOD);
+        LocalDate today = today();
+        joueurs.io("Nettoyage des détecteurs passés", () -> store.purgeTracked(today));
         Bukkit.getScheduler().runTaskTimer(this, joueurs::cleanEarly, 1200L, 1200L);
-        startParticles();
+        Bukkit.getScheduler().runTaskLater(this, () -> cartes.refresh(false), 20L * settings.guidage().startDelaySeconds());
+        startPeriodic();
     }
 
     @Override
     public void onDisable() {
         expansions.forEach(Expansion::unregister);
+        if (cartes != null) {
+            cartes.close();
+        }
         if (effets != null) {
             effets.clear();
         }
@@ -112,11 +124,13 @@ public final class SHCollectibles extends JavaPlugin {
         }
     }
 
-    private void startParticles() {
-        if (particleTask != null) {
-            particleTask.cancel();
-        }
-        particleTask = Bukkit.getScheduler().runTaskTimer(this, particules::tick, 20L, settings.particleTicks());
+    /** Passages réguliers dont la fréquence est dans config.yml. */
+    private void startPeriodic() {
+        periodic.forEach(BukkitTask::cancel);
+        periodic.clear();
+        periodic.add(Bukkit.getScheduler().runTaskTimer(this, particules::tick, 20L, settings.particleTicks()));
+        periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::tick, 5L, settings.guidage().walk().updateTicks()));
+        periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::trail, 7L, settings.guidage().trail().intervalTicks()));
     }
 
     /** Recharge tout ; un fichier invalide ne change rien et le message le nomme. Base et serveur : au redémarrage. */
@@ -140,7 +154,8 @@ public final class SHCollectibles extends JavaPlugin {
         messages = m;
         recherche.index(s);
         detecteur.onReload();
-        startParticles();
+        cartes.refresh(false);
+        startPeriodic();
     }
 
     /** Modifie le fichier d'une collection (commentaires gardés) et l'applique aussitôt. */
@@ -173,8 +188,14 @@ public final class SHCollectibles extends JavaPlugin {
                 }
             }
         }
+        Zones zones;
         try {
-            return Reglages.read(config, collections);
+            zones = Zones.read(load(new File(getDataFolder(), "zones.yml")), collections.values());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("zones.yml, " + e.getMessage());
+        }
+        try {
+            return Reglages.read(config, collections, zones);
         } catch (RuntimeException e) {
             throw new IllegalArgumentException("config.yml, " + e.getMessage());
         }
@@ -201,6 +222,11 @@ public final class SHCollectibles extends JavaPlugin {
 
     private File collectionsFolder() {
         return new File(getDataFolder(), "collections");
+    }
+
+    /** Jour du détecteur : il change à l'heure de « detecteur.limite.heure ». */
+    LocalDate today() {
+        return settings.limit().day(LocalDateTime.now());
     }
 
     void sync(Runnable r) {
@@ -231,5 +257,9 @@ public final class SHCollectibles extends JavaPlugin {
 
     Detecteur detecteur() {
         return detecteur;
+    }
+
+    Cartes cartes() {
+        return cartes;
     }
 }

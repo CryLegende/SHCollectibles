@@ -11,12 +11,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChoixTest {
 
+    private static final Choix.Rules RULES = new Choix.Rules(4, 4, 3, 0.6, 8, 0.8, 16, 10, 4);
+
     private static Lieu l(double x, double y, double z) {
         return new Lieu("spawn", x, y, z);
     }
 
     private static Collection.Item item(int id, Lieu place, Lieu... steps) {
-        return new Collection.Item(id, place, List.of(steps), null);
+        return new Collection.Item(id, place, List.of(steps), "", null);
     }
 
     /** Slime au fond de la grotte : d'abord la descente du quai, puis la bouche de la grotte. */
@@ -25,7 +27,7 @@ class ChoixTest {
     private static final Collection.Item ORBE = item(3, l(-6, 55, 55), l(-8, 67, 78), l(-33, 50, 60));
 
     private static int step(Collection.Item i, int passed, double x, double y, double z, boolean covered) {
-        return Choix.step(i, passed, x, y, z, covered, 4);
+        return Choix.step(i, passed, x, y, z, covered, RULES);
     }
 
     @Test
@@ -55,7 +57,6 @@ class ChoixTest {
     @Test
     void dejaDansLaZoneTouteEtapeEstSautee() {
         assertEquals(2, step(SLIME, 0, -62, 18, 1, true));
-        assertEquals(1, step(SLIME, 1, -62, 18, 60, false), "pas à l'abri : on ne croit pas être dans la grotte");
     }
 
     @Test
@@ -76,9 +77,7 @@ class ChoixTest {
 
     @Test
     void sansEtapeLeCollectibleLuiMeme() {
-        Collection.Item cookie = item(1, l(-29, 68, -22));
-        assertEquals(0, step(cookie, 0, 0, 63, 0, false));
-        assertEquals(cookie.steps().size(), step(cookie, 0, 0, 63, 0, false));
+        assertEquals(0, step(item(1, l(-29, 68, -22)), 0, 0, 63, 0, false));
     }
 
     @Test

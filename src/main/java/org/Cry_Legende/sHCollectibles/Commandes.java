@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /** /detecteur [collection] et /shcollectibles. */
@@ -32,8 +33,11 @@ final class Commandes implements TabExecutor {
         ADMIN.put("tp", "<collection> <numéro>");
         ADMIN.put("give", "<joueur> <collection> <numéro>");
         ADMIN.put("reset", "<joueur|*> <collection|*>");
+        ADMIN.put("limit", "<joueur>");
         ADMIN.put("enable", "<collection>");
         ADMIN.put("disable", "<collection>");
+        ADMIN.put("zones", "[zone]");
+        ADMIN.put("map", "[rebuild|check]");
         ADMIN.put("import", "<dossier players>");
     }
 
@@ -95,7 +99,10 @@ final class Commandes implements TabExecutor {
             case "tp" -> args.length == 3 && tp(sender, args[1], args[2]);
             case "give" -> args.length == 4 && give(sender, args[1], args[2], args[3]);
             case "reset" -> args.length == 3 && reset(sender, args[1], args[2]);
+            case "limit" -> args.length == 2 && limit(sender, args[1]);
             case "enable", "disable" -> args.length == 2 && open(sender, args[1], sub.equals("enable"));
+            case "zones" -> zones(sender, args);
+            case "map" -> map(sender, args);
             case "import" -> args.length == 2 && importPlayers(sender, args[1]);
             default -> false;
         };
@@ -143,7 +150,7 @@ final class Commandes implements TabExecutor {
         if (args.length == 1) {
             for (Collection c : plugin.settings().collections().values()) {
                 m.send(sender, "liste", "collection", c.id(), "nom", c.coloredName(), "total", Integer.toString(c.total()),
-                        "complete", Integer.toString(plugin.joueurs().completions(c.id())), "etat", c.enabled() ? "ouverte" : "fermée");
+                        "complete", Integer.toString(plugin.joueurs().completions(c.id())), "etat", m.text(c.enabled() ? "mots.ouverte" : "mots.fermee"));
             }
             return true;
         }
@@ -170,6 +177,9 @@ final class Commandes implements TabExecutor {
                     "trouves", Integer.toString(c.shown(d.read(c.id()), d.completed().contains(c.id()))),
                     "total", Integer.toString(c.total()), "numeros", d.read(c.id()).stream().sorted().toList().toString());
         }
+        if (!d.tracked(plugin.today()).isEmpty()) {
+            m.send(sender, "info-limite", "joueur", p.getName(), "liste", plugin.detecteur().names(d.tracked(plugin.today())));
+        }
         Detecteur.Active a = plugin.detecteur().get(p.getUniqueId());
         if (a == null) {
             m.send(sender, "info-detecteur-arrete", "joueur", p.getName());
@@ -177,8 +187,8 @@ final class Commandes implements TabExecutor {
             m.send(sender, "info-detecteur", "joueur", p.getName(), "nom", a.collection.coloredName(),
                     "numero", a.target < 0 ? "-" : Integer.toString(a.target),
                     "distance", a.target < 0 ? "-" : Long.toString(Math.round(a.distance)),
-                    "etape", a.target < 0 ? "-" : a.step + "/" + a.steps,
-                    "lieu", a.place.isEmpty() ? a.target < 0 ? "autre monde" : "tout près" : a.place);
+                    "etape", a.target < 0 ? "-" : a.onPath ? m.text("mots.chemin") : a.step + "/" + a.steps,
+                    "lieu", a.place.isEmpty() ? m.text(a.target < 0 ? "mots.ailleurs" : "mots.tout-pres") : a.place);
         }
         return true;
     }
@@ -189,7 +199,7 @@ final class Commandes implements TabExecutor {
             m.send(sender, "joueurs-seulement");
             return true;
         }
-        Block b = p.getTargetBlockExact(6);
+        Block b = p.getTargetBlockExact(plugin.settings().adminReach());
         Collection c = collection(sender, id);
         if (c == null) {
             return true;
@@ -216,7 +226,7 @@ final class Commandes implements TabExecutor {
             m.send(sender, "joueurs-seulement");
             return true;
         }
-        Block b = p.getTargetBlockExact(6);
+        Block b = p.getTargetBlockExact(plugin.settings().adminReach());
         Recherche.Found f = b == null ? null : plugin.recherche().at(b);
         if (f == null) {
             m.send(p, "viser");
@@ -315,6 +325,21 @@ final class Commandes implements TabExecutor {
         return true;
     }
 
+    /** Rend au joueur sa limite du jour. */
+    private boolean limit(CommandSender sender, String name) {
+        Player p = Bukkit.getPlayerExact(name);
+        Donnees d = p == null ? null : plugin.joueurs().get(p.getUniqueId());
+        if (d == null) {
+            plugin.messages().send(sender, "joueur-inconnu", "joueur", name);
+            return true;
+        }
+        UUID id = p.getUniqueId();
+        d.track(plugin.today(), Set.of());
+        plugin.joueurs().io("Limite du détecteur de " + p.getName(), () -> plugin.store().untrack(id));
+        plugin.messages().send(sender, "limite-rendue", "joueur", p.getName());
+        return true;
+    }
+
     private boolean open(CommandSender sender, String id, boolean enabled) {
         Collection c = collection(sender, id);
         if (c != null) {
@@ -322,6 +347,65 @@ final class Commandes implements TabExecutor {
             plugin.messages().send(sender, enabled ? "ouverte" : "refermee", "collection", c.id());
         }
         return true;
+    }
+
+    private boolean zones(CommandSender sender, String[] args) {
+        Textes m = plugin.messages();
+        Zones z = plugin.settings().zones();
+        if (args.length == 1) {
+            for (String id : z.items().keySet()) {
+                m.send(sender, "zone", "zone", id, "total", Integer.toString(z.total(id)));
+            }
+            return true;
+        }
+        for (Recherche.Found f : z.items().getOrDefault(args[1], List.of())) {
+            m.send(sender, "zone-collectible", "collection", f.collection().id(), "numero", Integer.toString(f.item().id()),
+                    "lieu", f.item().place().text());
+        }
+        return true;
+    }
+
+    /** État des cartes, carte refaite, ou vérification des chemins depuis le point de départ de chaque monde. */
+    private boolean map(CommandSender sender, String[] args) {
+        Textes m = plugin.messages();
+        if (args.length == 2 && args[1].equalsIgnoreCase("rebuild")) {
+            plugin.cartes().refresh(true);
+            m.send(sender, "carte-refaite");
+            return true;
+        }
+        if (args.length > 2 || args.length == 2 && !args[1].equalsIgnoreCase("check")) {
+            return false;
+        }
+        for (Cartes.Monde w : plugin.cartes().all().values()) {
+            Reseau r = w.network;
+            m.send(sender, r == null ? "carte-en-cours" : "carte", "monde", w.name, "cases", r == null ? "0" : Integer.toString(r.size()),
+                    "chemins", Integer.toString(w.routes()), "secondes", Long.toString(w.seconds));
+            if (r != null && args.length == 2) {
+                check(sender, w, r);
+            }
+        }
+        return true;
+    }
+
+    private void check(CommandSender sender, Cartes.Monde w, Reseau r) {
+        Textes m = plugin.messages();
+        Location spawn = Bukkit.getWorld(w.name).getSpawnLocation();
+        Guidage g = plugin.settings().guidage();
+        int node = r.locate(spawn.getX(), spawn.getY(), spawn.getZ(), g.walk().locateDown(), g.walk().locateAround());
+        for (Collection c : plugin.settings().collections().values()) {
+            for (Collection.Item i : c.items().values()) {
+                if (!c.enabled() || !c.detector() || !i.place().world().equals(w.name)) {
+                    continue;
+                }
+                Cartes.Route route = plugin.cartes().route(w, c, i);
+                Trajet t = route == null || node < 0 ? null : Trajet.from(r, route.field(), node, w.name, spawn.getX(), spawn.getY(), spawn.getZ(), g);
+                String state = route == null ? "chemin-calcul" : t == null ? "chemin-aucun" : route.reached() ? "chemin" : "chemin-partiel";
+                int[] jumps = t == null ? new int[3] : Trajet.jumps(r, route.field(), node);
+                m.send(sender, state, "collection", c.id(), "numero", Integer.toString(i.id()), "longueur", t == null ? "-" : Long.toString(Math.round(t.length())),
+                        "chutes", Integer.toString(jumps[0]), "sauts", Integer.toString(jumps[1]), "doubles", Integer.toString(jumps[2]),
+                        "lieu", route == null ? "-" : route.end());
+            }
+        }
     }
 
     private boolean importPlayers(CommandSender sender, String path) {
@@ -374,12 +458,19 @@ final class Commandes implements TabExecutor {
         if (!ADMIN.containsKey(sub) || !allowed(sender, sub)) {
             return out;
         }
-        boolean playerFirst = sub.equals("info") || sub.equals("give") || sub.equals("reset");
+        boolean playerFirst = sub.equals("info") || sub.equals("give") || sub.equals("reset") || sub.equals("limit");
         if (args.length == 2 && playerFirst) {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 add(out, p.getName(), args[1]);
             }
-        } else if (args.length == (playerFirst ? 3 : 2) && !sub.equals("import") && !sub.equals("info") && !sub.equals("reload")
+        } else if (args.length == 2 && sub.equals("map")) {
+            add(out, "rebuild", args[1]);
+            add(out, "check", args[1]);
+        } else if (args.length == 2 && sub.equals("zones")) {
+            for (String id : plugin.settings().zones().items().keySet()) {
+                add(out, id, args[1]);
+            }
+        } else if (args.length == (playerFirst ? 3 : 2) && !sub.equals("import") && !sub.equals("info") && !sub.equals("limit") && !sub.equals("reload")
                 && !sub.equals("remove")) {
             for (String id : plugin.settings().collections().keySet()) {
                 add(out, id, args[args.length - 1]);

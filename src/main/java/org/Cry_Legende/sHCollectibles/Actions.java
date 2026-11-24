@@ -33,8 +33,8 @@ record Actions(List<String> chat, String title, String subtitle, int fadeIn, int
         }
     }
 
-    /** Objets qui jaillissent du collectible, un tous les « delay » ticks. */
-    record Items(List<Material> materials, int count, int delay, double height, Son sound) {
+    /** Objets qui jaillissent du collectible, un tous les « delay » ticks : montée, puis retombée à « spread » blocs au plus. */
+    record Items(List<Material> materials, int count, int delay, double height, float size, int rise, int fall, float top, float spread, Son sound) {
     }
 
     record Hologram(List<String> lines, int ticks, double height) {
@@ -75,7 +75,9 @@ record Actions(List<String> chat, String title, String subtitle, int fadeIn, int
             throw new IllegalArgumentException(where + ".matieres : liste vide");
         }
         return new Items(List.copyOf(materials), Math.max(1, Math.min(64, s.getInt("nombre", 20))), Math.max(1, s.getInt("delai", 1)),
-                s.getDouble("hauteur", 0.5), Son.read(s.getString("son"), where + ".son"));
+                s.getDouble("hauteur", 0.5), (float) s.getDouble("taille", 0.35), Math.max(1, s.getInt("montee-ticks", 7)),
+                Math.max(1, s.getInt("chute-ticks", 10)), (float) s.getDouble("sommet", 1.1), (float) s.getDouble("ecart", 1.3),
+                Son.read(s.getString("son"), where + ".son"));
     }
 
     private static Hologram hologram(ConfigurationSection s) {

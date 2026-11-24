@@ -33,9 +33,8 @@ import java.util.concurrent.ThreadLocalRandom;
 /** Joue les actions d'une trouvaille. Les effets ne sont montrés qu'au joueur et ne sont jamais sauvegardés. */
 final class Effets implements Listener {
 
-    private static final float ITEM_SIZE = 0.35f;
-    private static final int RISE = 7;
-    private static final int FALL = 10;
+    /** Laisse au client le temps de voir l'objet avant de l'animer. */
+    private static final int FIRST = 2;
 
     private final SHCollectibles plugin;
     private final Set<Entity> shown = new HashSet<>();
@@ -110,9 +109,9 @@ final class Effets implements Listener {
             ThreadLocalRandom rnd = ThreadLocalRandom.current();
             Material m = it.materials().get(rnd.nextInt(it.materials().size()));
             double angle = rnd.nextDouble(Math.PI * 2);
-            float far = 0.5f + rnd.nextFloat() * 0.8f;
+            float far = it.spread() * (0.4f + rnd.nextFloat() * 0.6f);
             Vector3f end = new Vector3f((float) Math.cos(angle) * far, -0.4f, (float) Math.sin(angle) * far);
-            Vector3f top = new Vector3f(end.x * 0.55f, 0.6f + rnd.nextFloat() * 0.5f, end.z * 0.55f);
+            Vector3f top = new Vector3f(end.x * 0.55f, it.top() * (0.55f + rnd.nextFloat() * 0.45f), end.z * 0.55f);
             Quaternionf turn = new Quaternionf().rotateY((float) angle);
             ItemDisplay e = at.getWorld().spawn(at.clone().add(0, it.height(), 0), ItemDisplay.class, d -> {
                 d.setPersistent(false);
@@ -120,11 +119,11 @@ final class Effets implements Listener {
                 d.setItemStack(new ItemStack(m));
                 d.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GROUND);
                 d.setBrightness(new Display.Brightness(15, 15));
-                d.setTransformation(transformation(new Vector3f(), turn, ITEM_SIZE));
+                d.setTransformation(transformation(new Vector3f(), turn, it.size()));
             });
-            show(p, e, 2 + RISE + FALL);
-            glide(e, top, turn, ITEM_SIZE * 2, RISE, 2);
-            glide(e, end, turn, ITEM_SIZE, FALL, 2 + RISE);
+            show(p, e, FIRST + it.rise() + it.fall());
+            glide(e, top, turn, it.size() * 2, it.rise(), FIRST);
+            glide(e, end, turn, it.size(), it.fall(), FIRST + it.rise());
             sound(p, it.sound(), at);
         }, 0L, it.delay());
     }

@@ -80,7 +80,7 @@ final class Joueurs implements Listener {
             return;
         }
         try {
-            early.put(e.getUniqueId(), new Early(store.load(e.getUniqueId()), System.currentTimeMillis()));
+            early.put(e.getUniqueId(), new Early(store.load(e.getUniqueId(), plugin.today()), System.currentTimeMillis()));
         } catch (Exception ex) {
             plugin.getLogger().log(Level.WARNING, "Lecture des trouvailles de " + e.getName() + " impossible", ex);
         }
@@ -109,7 +109,7 @@ final class Joueurs implements Listener {
     void load(Player p) {
         UUID id = p.getUniqueId();
         io("Lecture des trouvailles de " + p.getName(), () -> {
-            Donnees d = store.load(id);
+            Donnees d = store.load(id, plugin.today());
             plugin.sync(() -> {
                 if (p.isOnline()) {
                     online.put(id, d);

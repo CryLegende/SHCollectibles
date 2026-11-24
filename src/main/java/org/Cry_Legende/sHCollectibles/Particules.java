@@ -13,11 +13,10 @@ import java.util.concurrent.ThreadLocalRandom;
 /** Point de couleur des collectibles proches, montré seulement aux joueurs qui ne les ont pas encore. */
 final class Particules {
 
-    private static final int ORBIT_STEPS = 10;
-
     private final SHCollectibles plugin;
     private final Map<Integer, Particle.DustOptions> dusts = new HashMap<>();
     private int turn;
+    private float dustSize;
 
     Particules(SHCollectibles plugin) {
         this.plugin = plugin;
@@ -27,6 +26,12 @@ final class Particules {
         turn++;
         double max = plugin.settings().particleDistance();
         double max2 = max * max;
+        int orbit = plugin.settings().orbitSteps();
+        float size = (float) plugin.settings().particleSize();
+        if (size != dustSize) {
+            dustSize = size;
+            dusts.clear();
+        }
         for (Player p : Bukkit.getOnlinePlayers()) {
             Donnees d = plugin.joueurs().get(p.getUniqueId());
             if (d == null) {
@@ -47,14 +52,14 @@ final class Particules {
                 double x = at.x() + 0.5;
                 double z = at.z() + 0.5;
                 if (look.orbit() > 0) {
-                    double angle = Math.PI * 2 * (turn % ORBIT_STEPS) / ORBIT_STEPS;
+                    double angle = Math.PI * 2 * (turn % orbit) / orbit;
                     x += Math.cos(angle) * look.orbit();
                     z += Math.sin(angle) * look.orbit();
                 }
                 double y = at.y() + (look.heightMax() > look.height()
                         ? ThreadLocalRandom.current().nextDouble(look.height(), look.heightMax()) : look.height());
                 p.spawnParticle(Particle.DUST, x, y, z, 1, 0, 0, 0, 0,
-                        dusts.computeIfAbsent(look.rgb(), rgb -> new Particle.DustOptions(Color.fromRGB(rgb), 1f)));
+                        dusts.computeIfAbsent(look.rgb(), rgb -> new Particle.DustOptions(Color.fromRGB(rgb), size)));
             }
         }
     }

@@ -9,17 +9,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** config.yml et collections/, lus une fois par chargement ; tout est immuable ensuite. */
-record Reglages(String server, Db db, Set<GameMode> refusedModes, String alias, double particleDistance, int particleTicks,
-                String otherWorldCommand, double near, double far, double margin, double stepRadius,
-                Actions.Son noise, int noiseTicks, Map<String, Collection> collections) {
+/** config.yml, zones.yml et collections/, lus une fois par chargement ; tout est immuable ensuite. */
+record Reglages(String server, Db db, Set<GameMode> refusedModes, String alias, double particleDistance, int particleTicks, int orbitSteps,
+                double particleSize, String otherWorldCommand, Limite limit, double near, double far, double margin, double teleport, Choix.Rules rules,
+                Actions.Son noise, int noiseTicks, double noiseReach, int adminReach, Guidage guidage, Zones zones,
+                Map<String, Collection> collections) {
 
-    record Db(String host, int port, String database, String user, String password) {
-    }
-
-    /** Distance à laquelle le bruit s'entend encore (16 blocs par unité de volume, 16 au moins). */
-    double noiseRange() {
-        return 16.0 * Math.max(1f, noise.volume());
+    record Db(String host, int port, String database, String user, String password, int connections) {
     }
 
     /** Collection par son nom, sans tenir compte de la casse ; null si elle n'existe pas. */
@@ -40,11 +36,18 @@ record Reglages(String server, Db db, Set<GameMode> refusedModes, String alias, 
         return c.getString("permission", "shcollectibles.collection.{collection}");
     }
 
-    static Reglages read(ConfigurationSection c, Map<String, Collection> collections) {
+    static Reglages read(ConfigurationSection c, Map<String, Collection> collections, Zones zones) {
         ConfigurationSection b = need(c, "base-de-donnees");
         ConfigurationSection p = need(c, "particules");
         ConfigurationSection d = need(c, "detecteur");
         ConfigurationSection dist = need(d, "distances");
+        ConfigurationSection s = need(d, "secours");
+        ConfigurationSection n = need(d, "bruit");
+        ConfigurationSection lim = need(d, "limite");
+        int hour = lim.getInt("heure", 0);
+        if (hour < 0 || hour > 23) {
+            throw new IllegalArgumentException("detecteur.limite.heure : de 0 à 23");
+        }
         Set<GameMode> modes = EnumSet.noneOf(GameMode.class);
         for (String m : c.getStringList("modes-refuses")) {
             try {
@@ -59,11 +62,17 @@ record Reglages(String server, Db db, Set<GameMode> refusedModes, String alias, 
         }
         return new Reglages(server,
                 new Db(b.getString("hote", "127.0.0.1"), b.getInt("port", 3306), b.getString("base", "minecraft"),
-                        b.getString("utilisateur", ""), b.getString("mot-de-passe", "")),
+                        b.getString("utilisateur", ""), b.getString("mot-de-passe", ""), Math.max(1, b.getInt("connexions", 3))),
                 modes, c.getString("alias-placeholders", "").trim(), positive(p, "distance", 20), Math.max(1, p.getInt("intervalle-ticks", 5)),
-                d.getString("commande-autre-monde", "").trim(), positive(dist, "proche", 15), positive(dist, "loin", 20),
-                positive(dist, "changement", 20), positive(dist, "etape", 4),
-                Actions.Son.read(d.getString("bruit.son"), "detecteur.bruit.son"), Math.max(10, d.getInt("bruit.intervalle-ticks", 20)),
+                Math.max(1, p.getInt("orbite-pas", 10)), Math.max(0.1, positive(p, "taille", 1)),
+                d.getString("commande-autre-monde", "").trim(), new Limite(Math.max(0, lim.getInt("par-jour", 1)), hour),
+                positive(dist, "proche", 22), positive(dist, "loin", 28),
+                positive(dist, "changement", 20), positive(dist, "teleportation", 30),
+                new Choix.Rules(positive(s, "rayon", 4), positive(s, "hauteur", 4), positive(s, "depasse-hauteur", 3), positive(s, "depasse-part", 0.6),
+                        positive(s, "zone-hauteur", 8), positive(s, "zone-part", 0.8), positive(s, "ressorti", 16), positive(s, "retour", 10),
+                        s.getInt("abri-lumiere", 4)),
+                Actions.Son.read(n.getString("son"), "detecteur.bruit.son"), Math.max(1, n.getInt("intervalle-ticks", 80)),
+                positive(n, "portee", 10), Math.max(1, c.getInt("admin-portee", 6)), Guidage.read(c.getConfigurationSection("guidage")), zones,
                 Collections.unmodifiableMap(collections));
     }
 

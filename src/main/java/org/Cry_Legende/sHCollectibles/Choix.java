@@ -2,22 +2,15 @@ package org.Cry_Legende.sHCollectibles;
 
 import java.util.List;
 
-/** Choix du collectible à montrer, étape vers laquelle aller, et état « tout près ». */
+/** Choix du collectible à montrer, état « tout près », et étapes de secours quand aucun chemin à pied n'est connu. */
 final class Choix {
 
-    /** Écart de hauteur toléré avec le collectible pour dire que le joueur est déjà dans sa zone. */
-    private static final double LEVEL = 8;
-    /** Passer une étape : à cette hauteur près (une entrée au sol se passe en marchant dessus). */
-    private static final double STEP_HEIGHT = 4;
-    /** Être déjà plus loin qu'une étape : presque à la hauteur de la suivante, et nettement plus près d'elle. */
-    private static final double BEYOND_HEIGHT = 3;
-    private static final double BEYOND = 0.6;
-    /** Revenir à l'entrée : ressorti sous le ciel à plus de cette distance d'elle, sans être en chemin vers le collectible. */
-    private static final double OUTSIDE = 16;
-    /** Revenir à une étape : s'être éloigné de la suivante de plus que cette étape, à cette marge près. */
-    private static final double BACK = 10;
+    /** Réglages des étapes de secours (detecteur.secours). */
+    record Rules(double radius, double height, double beyondHeight, double beyondPart, double level, double insidePart,
+                 double outside, double back, int coveredLight) {
+    }
 
-    /** Collectible à trouver, avec la longueur du trajet qui reste (par ses étapes). */
+    /** Collectible à trouver, avec le coût ou la longueur du trajet qui reste. */
     record Candidate(Collection.Item item, double length) {
     }
 
@@ -51,7 +44,7 @@ final class Choix {
      * Étape à montrer (0 à n-1), ou n quand toutes sont passées. « passed » : étapes déjà passées ; « covered » : le joueur
      * est à l'abri du ciel (dans une zone, une maison, sous terre).
      */
-    static int step(Collection.Item item, int passed, double x, double y, double z, boolean covered, double radius) {
+    static int step(Collection.Item item, int passed, double x, double y, double z, boolean covered, Rules r) {
         List<Lieu> steps = item.steps();
         int n = steps.size();
         if (n == 0) {
@@ -59,22 +52,22 @@ final class Choix {
         }
         Lieu entrance = steps.get(n - 1);
         Lieu goal = item.center();
-        boolean towards = Math.abs(goal.y() - y) <= LEVEL && goal.distance(x, y, z) < 0.8 * entrance.distance(goal);
+        boolean towards = Math.abs(goal.y() - y) <= r.level() && goal.distance(x, y, z) < r.insidePart() * entrance.distance(goal);
         if (covered && towards) {
             return n;
         }
         int i = Math.min(passed, n);
-        if (i == n && !covered && !towards && entrance.distance(x, y, z) > OUTSIDE) {
+        if (i == n && !covered && !towards && entrance.distance(x, y, z) > r.outside()) {
             i--;
         }
-        while (i > 0 && i < n && steps.get(i).distance(x, y, z) > steps.get(i - 1).distance(steps.get(i)) + BACK) {
+        while (i > 0 && i < n && steps.get(i).distance(x, y, z) > steps.get(i - 1).distance(steps.get(i)) + r.back()) {
             i--;
         }
         while (i < n) {
             Lieu step = steps.get(i);
-            boolean reached = Math.hypot(step.x() - x, step.z() - z) <= radius && Math.abs(step.y() - y) <= STEP_HEIGHT;
-            boolean beyond = i + 1 < n && Math.abs(steps.get(i + 1).y() - y) <= BEYOND_HEIGHT
-                    && steps.get(i + 1).distance(x, y, z) < BEYOND * step.distance(steps.get(i + 1));
+            boolean reached = Math.hypot(step.x() - x, step.z() - z) <= r.radius() && Math.abs(step.y() - y) <= r.height();
+            boolean beyond = i + 1 < n && Math.abs(steps.get(i + 1).y() - y) <= r.beyondHeight()
+                    && steps.get(i + 1).distance(x, y, z) < r.beyondPart() * step.distance(steps.get(i + 1));
             if (!reached && !beyond) {
                 break;
             }

@@ -6,10 +6,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -38,13 +41,17 @@ final class Magasin {
                     + "complete_le TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP, "
                     + "PRIMARY KEY (serveur, uuid, collection), KEY uuid (uuid)"
                     + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin");
+            st.execute("CREATE TABLE IF NOT EXISTS shcollectibles_suivies ("
+                    + "serveur VARCHAR(16) NOT NULL, uuid CHAR(36) NOT NULL, jour DATE NOT NULL, collection VARCHAR(48) NOT NULL, "
+                    + "PRIMARY KEY (serveur, uuid, jour, collection), KEY uuid (uuid)"
+                    + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin");
             st.execute("CREATE TABLE IF NOT EXISTS shcollectibles_joueurs ("
                     + "uuid CHAR(36) NOT NULL PRIMARY KEY, nom VARCHAR(16) NOT NULL, KEY nom (nom)"
                     + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
     }
 
-    Donnees load(UUID id) throws SQLException {
+    Donnees load(UUID id, LocalDate day) throws SQLException {
         Donnees d = new Donnees();
         try (Connection c = source.getConnection()) {
             try (PreparedStatement ps = c.prepareStatement(
@@ -66,6 +73,19 @@ final class Magasin {
                         d.completed().add(rs.getString(1));
                     }
                 }
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT collection FROM shcollectibles_suivies WHERE serveur = ? AND uuid = ? AND jour = ?")) {
+                ps.setString(1, server);
+                ps.setString(2, id.toString());
+                ps.setString(3, day.toString());
+                Set<String> tracked = new HashSet<>();
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        tracked.add(rs.getString(1));
+                    }
+                }
+                d.track(day, tracked);
             }
         }
         return d;
@@ -100,6 +120,37 @@ final class Magasin {
             ps.setString(1, server);
             ps.setString(2, id.toString());
             ps.setString(3, collection);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Collection suivie au détecteur ce jour-là. */
+    void track(UUID id, LocalDate day, String collection) throws SQLException {
+        try (Connection c = source.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "INSERT IGNORE INTO shcollectibles_suivies (serveur, uuid, jour, collection) VALUES (?, ?, ?, ?)")) {
+            ps.setString(1, server);
+            ps.setString(2, id.toString());
+            ps.setString(3, day.toString());
+            ps.setString(4, collection);
+            ps.executeUpdate();
+        }
+    }
+
+    void untrack(UUID id) throws SQLException {
+        try (Connection c = source.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "DELETE FROM shcollectibles_suivies WHERE serveur = ? AND uuid = ?")) {
+            ps.setString(1, server);
+            ps.setString(2, id.toString());
+            ps.executeUpdate();
+        }
+    }
+
+    /** Jours passés : ils ne servent plus. */
+    void purgeTracked(LocalDate today) throws SQLException {
+        try (Connection c = source.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "DELETE FROM shcollectibles_suivies WHERE serveur = ? AND jour < ?")) {
+            ps.setString(1, server);
+            ps.setString(2, today.toString());
             ps.executeUpdate();
         }
     }

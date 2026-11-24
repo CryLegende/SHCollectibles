@@ -18,11 +18,14 @@ commands:
     usage: /<command> [collection]
   shcollectibles:
     description: Administration des collections.
-    usage: /<command> <reload|list|info|add|remove|step|tp|give|reset|enable|disable|import> ...
+    usage: /<command> <reload|list|info|add|remove|step|tp|give|reset|limit|enable|disable|zones|map|import> ...
 
 permissions:
   shcollectibles.detecteur:
     description: Se servir du détecteur (/detecteur).
+    default: op
+  shcollectibles.detecteur.illimite:
+    description: Suivre autant de collections que voulu dans la journée.
     default: op
   shcollectibles.admin:
     description: Toutes les sous-commandes de /shcollectibles.
@@ -37,8 +40,11 @@ permissions:
       shcollectibles.admin.tp: true
       shcollectibles.admin.give: true
       shcollectibles.admin.reset: true
+      shcollectibles.admin.limit: true
       shcollectibles.admin.enable: true
       shcollectibles.admin.disable: true
+      shcollectibles.admin.zones: true
+      shcollectibles.admin.map: true
       shcollectibles.admin.import: true
   shcollectibles.admin.reload:
     description: Recharger la configuration et les collections.
@@ -67,11 +73,20 @@ permissions:
   shcollectibles.admin.reset:
     description: Effacer les trouvailles d'un joueur.
     default: op
+  shcollectibles.admin.limit:
+    description: Rendre à un joueur sa limite du jour.
+    default: op
   shcollectibles.admin.enable:
     description: Ouvrir une collection.
     default: op
   shcollectibles.admin.disable:
     description: Fermer une collection.
+    default: op
+  shcollectibles.admin.zones:
+    description: Voir les zones et leurs collectibles.
+    default: op
+  shcollectibles.admin.map:
+    description: Voir, refaire ou vérifier la carte des chemins.
     default: op
   shcollectibles.admin.import:
     description: Reprendre les trouvailles d'un dossier de joueurs TheSearch.

@@ -24,6 +24,10 @@ chat:
 
   # Détecteur
   detecteur-active: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis ce &abruit&7."
+  # Le même pour un joueur limité : {n} collections par jour
+  detecteur-active-limite: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis ce &abruit &8({n} collection par jour)"
+  # {liste} : collections déjà suivies aujourd'hui · {heures} {minutes} : attente
+  limite: "&7&l« &c&lSH &8&l» &7Vous avez déjà suivi {liste} &7aujourd'hui, détecteur disponible dans &c{heures} h {minutes} min&7."
   detecteur-arrete: "&7&l« &e&lSH &8&l» &7Détecteur {nom} &earrêté&7."
   detecteur-aucun: "&7&l« &e&lSH &8&l» &7Choisissez une collection dans &e/collections&7."
 
@@ -40,7 +44,9 @@ chat:
   info: "&7&l« &e&lSH &8&l» &7{joueur} {nom} &e{trouves}&7/&e{total} &8{numeros}"
   info-detecteur: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur}&7, {nom} &7n°&e{numero} &7à &e{distance} blocs&7, étape &e{etape} &8({lieu})"
   info-detecteur-arrete: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur} &7arrêté."
-  viser: "&7&l« &c&lSH &8&l» &7Visez la &ctête &7à 6 blocs au plus."
+  info-limite: "&7&l« &e&lSH &8&l» &7Suivies aujourd'hui par &e{joueur}&7, {liste}"
+  limite-rendue: "&7&l« &a&lSH &8&l» &7Limite du jour rendue à &a{joueur}&7."
+  viser: "&7&l« &c&lSH &8&l» &7Visez la &ctête &7de plus près."
   deja-collectible: "&7&l« &c&lSH &8&l» &7Cette tête est déjà &c{collection} {numero}&7."
   autre-monde: "&7&l« &c&lSH &8&l» &7Ce collectible est dans le monde &c{monde}&7."
   ajoute: "&7&l« &a&lSH &8&l» &7Tête ajoutée, &a{collection} {numero}&7."
@@ -52,17 +58,45 @@ chat:
   ouverte: "&7&l« &a&lSH &8&l» &7Collection &a{collection} &7ouverte."
   refermee: "&7&l« &a&lSH &8&l» &7Collection &a{collection} &7fermée."
   reprise: "&7&l« &a&lSH &8&l» &7Reprise de &a{joueurs} &7joueurs, &a{trouvailles} &7trouvailles et &a{completes} &7collections complètes lues &8(en base {base-trouvailles} et {base-completes})"
+  zone: "&7&l« &e&lSH &8&l» &7Zone &e{zone}&7, &e{total} &7collectible(s)"
+  zone-collectible: "&7&l« &e&lSH &8&l» &e{collection} {numero} &7en &e{lieu}"
+  carte: "&7&l« &e&lSH &8&l» &7Carte de &e{monde}&7, &e{cases} &7cases et &e{chemins} &7chemins, faite en &e{secondes} s"
+  carte-en-cours: "&7&l« &e&lSH &8&l» &7Carte de &e{monde} &7en cours."
+  carte-refaite: "&7&l« &a&lSH &8&l» &7Carte &aen cours &7de calcul."
+  chemin: "&7&l« &e&lSH &8&l» &e{collection} {numero} &7à &e{longueur} blocs &8(chutes {chutes}, sauts {sauts}, doubles sauts {doubles})"
+  chemin-partiel: "&7&l« &6&lSH &8&l» &6{collection} {numero} &7pas atteint à pied, chemin de &6{longueur} blocs &7jusqu'au plus près &8({lieu})"
+  chemin-aucun: "&7&l« &c&lSH &8&l» &c{collection} {numero} &7sans chemin depuis le départ"
+  chemin-calcul: "&7&l« &e&lSH &8&l» &e{collection} {numero} &7en cours de calcul"
   reload-ok: "&7&l« &a&lSH &8&l» &7Configuration de &aSHCollectibles &7rechargée, &a{n} &7collections."
   reload-erreur: "&7&l« &c&lSH &8&l» &7Fichier invalide, rien n'a changé. &c{erreur}"
 
 # Montré une fois par collectible, quand la flèche disparaît
-barre-proche: "{objet} &ftout près, &7suivez le bruit"
+barre-proche: "{objet} &fdans les environs, &7tendez l'oreille"
 
-# Au-dessus de la flèche quand elle mène à l'entrée de la zone
-nom-entree: "{objet} &8· &fentrée"
+# Au-dessus de la flèche (%shcollectibles_fleche%). {distance} : blocs à marcher. {hauteur} est rempli par le plugin qui
+# dessine la flèche (plus haut, plus bas). « raccourci » s'ajoute quand une commande fait gagner du chemin.
+fleche:
+  texte: "{objet} &7{distance} m{hauteur}"
+  raccourci: "\n&8plus court &f/{commande}"
+
+# Compte d'une zone (%shcollectibles_zone_<zone>%), par exemple dans le codex. Vide quand il n'y a rien à y trouver.
+zone:
+  ligne: "&7Collectibles trouvés &e{trouves}&7/&e{total}"
+  complete: "&7Collectibles trouvés &a{trouves}&7/&a{total}"
+
+# Mots utilisés dans les messages d'administration
+mots:
+  ouverte: "ouverte"
+  fermee: "fermée"
+  ailleurs: "autre monde"
+  tout-pres: "tout près"
+  chemin: "à pied"
 
 # %shcollectibles_menu_<collection>%
 menu:
   activer: "&8&o(( {couleur}&oClic Gauche &f&opour activer le {couleur}&odétecteur &8&o))"
+  # Pour un joueur limité : {n} collections par jour, puis l'attente quand la limite du jour est atteinte
+  activer-limite: "&8&o(( {couleur}&oClic Gauche &f&opour activer le {couleur}&odétecteur &f&o({n} par jour) &8&o))"
+  limite: "&8&o(( &f&oDétecteur disponible dans &c&o{heures} h {minutes} min &8&o))"
   arreter: "&8&o(( {couleur}&oClic Gauche &f&opour arrêter le {couleur}&odétecteur &8&o))"
   complete: "&8&o(( &f&oCollection &a&ocomplète &8&o))"

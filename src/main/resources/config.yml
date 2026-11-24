@@ -6,35 +6,45 @@
 # collection, et celle de fin quand tout est trouvé. Une collection par fichier de collections/ (le nom du fichier est
 # son identifiant, gardé avec les trouvailles : ne pas le renommer).
 #
-# Le détecteur guide un joueur vers le collectible restant le plus proche : une flèche l'emmène à l'entrée de sa zone
-# (« etapes » du collectible) puis vers lui, disparaît quand il est tout près, et le collectible fait un petit bruit à
-# intervalle régulier. Il repart vers le suivant, s'arrête quand la collection est complète ou à la déconnexion. La
-# flèche est dessinée par un plugin qui lit %shcollectibles_cible% (SHGuide, section « fleches »).
+# Le détecteur guide un joueur vers le collectible au chemin le plus court : le plugin connaît le monde (section
+# « guidage ») et suit le vrai trajet à pied, avec ses détours, escaliers, portes et échelles. La flèche montre le
+# prochain point du chemin, disparaît aux environs du collectible, et celui-ci fait un petit bruit quand il est proche à
+# pied. Un collectible ajouté est guidé tout seul. Un joueur ne suit qu'un nombre limité de collections par jour.
+#
+# Fichiers : config.yml (ce fichier), messages.yml (tous les textes), zones.yml (compte des collectibles par zone),
+# collections/ (têtes, récompenses, effets). Tout se change sans toucher au code, puis /shcollectibles reload.
 #
 # Commandes :
 #   /detecteur <collection>       Active le détecteur de la collection, l'arrête s'il était déjà actif.
 #   /detecteur                    Arrête le détecteur.
-#   /shcollectibles reload        Recharge config.yml, messages.yml et collections/.
+#   /shcollectibles reload        Recharge config.yml, messages.yml, zones.yml et collections/.
 #   /shcollectibles list [collection]                           Collections, ou collectibles d'une collection.
 #   /shcollectibles info <joueur>                               Trouvailles et détecteur d'un joueur connecté.
 #   /shcollectibles add <collection>                            Ajoute le bloc visé à la collection.
 #   /shcollectibles remove                                      Retire le bloc visé de sa collection.
-#   /shcollectibles step <collection> <numéro> <add|clear>      Ajoute une étape du détecteur là où vous êtes (l'entrée
-#                                                               de la zone en dernier), ou efface les étapes.
+#   /shcollectibles step <collection> <numéro> <add|clear>      Étape de secours là où vous êtes, ou les efface.
 #   /shcollectibles tp <collection> <numéro>                    Se téléporter au collectible.
 #   /shcollectibles give <joueur> <collection> <numéro>         Donne un collectible, avec sa récompense.
 #   /shcollectibles reset <joueur|*> <collection|*>             Efface des trouvailles.
+#   /shcollectibles limit <joueur>                              Rend à un joueur sa limite du jour (detecteur.limite).
 #   /shcollectibles enable|disable <collection>                 Ouvre ou ferme une collection.
+#   /shcollectibles zones [zone]                                Zones et leur compte, ou collectibles d'une zone.
+#   /shcollectibles map                                         État des cartes.
+#   /shcollectibles map rebuild                                 Relit le monde (après des travaux au spawn).
+#   /shcollectibles map check                                   Chemin de chaque collectible depuis le départ : longueur,
+#                                                               chutes, sauts, et ceux qui ne sont pas atteints à pied.
 #   /shcollectibles import <dossier players>                    Console : reprend les trouvailles de TheSearch. Une ligne
 #                                                               déjà enregistrée n'est pas touchée.
 #
 # Permissions :
 #   shcollectibles.detecteur             Se servir du détecteur.
+#   shcollectibles.detecteur.illimite    Pas de limite par jour.
 #   shcollectibles.admin                 Toutes les sous-commandes de /shcollectibles.
-#   shcollectibles.admin.<sous-commande> reload, list, info, add, remove, step, tp, give, reset, enable, disable, import.
+#   shcollectibles.admin.<sous-commande> reload, list, info, add, remove, step, tp, give, reset, limit, enable, disable,
+#                                        zones, map, import.
 #   La permission exigée pour une collection est réglée par « permission » plus bas.
 #
-# Placeholders (<c> = identifiant de la collection) :
+# Placeholders (<c> = identifiant de la collection, <z> = identifiant de la zone) :
 #   %shcollectibles_total_found_objects_<c>%           Collectibles trouvés.
 #   %shcollectibles_remaining_objects_<c>%             Collectibles restants.
 #   %shcollectibles_total_objects_<c>%                 Collectibles de la collection.
@@ -43,14 +53,20 @@
 #   %shcollectibles_total_players_with_completed_<c>%  Joueurs qui ont complété la collection.
 #   %shcollectibles_total_completed_searches%          Collections complètes du joueur.
 #   %shcollectibles_is_enabled_<c>%                    true si la collection est ouverte.
-#   %shcollectibles_menu_<c>%                          Ligne de menu du détecteur : activer, arrêter ou complète.
-#   %shcollectibles_cible%                             Lieu que la flèche doit montrer, « monde x y z ». Vide quand le
-#                                                      détecteur est arrêté, le collectible tout près ou ailleurs.
-#   %shcollectibles_nom%                               Texte au-dessus de la flèche.
+#   %shcollectibles_zone_<z>%                          Ligne « trouvés 2/3 » de la zone (messages.yml), vide si elle n'a
+#                                                      aucun collectible.
+#   %shcollectibles_zone_trouves_<z>%                  Collectibles trouvés dans la zone.
+#   %shcollectibles_zone_total_<z>%                    Collectibles de la zone.
+#   %shcollectibles_menu_<c>%                          Ligne de menu du détecteur : activer, arrêter, limite du jour
+#                                                      atteinte ou complète.
+#   %shcollectibles_cible%                             Point que la flèche doit montrer, « monde x y z ». Vide quand le
+#                                                      détecteur est arrêté ou le collectible tout près.
+#   %shcollectibles_fleche%                            Texte au-dessus de la flèche.
 #   %shcollectibles_collection%                        Collection du détecteur actif.
 #
 # Fichier d'une collection :
 #   nom, objet, couleur     nom de la collection, d'un collectible, et leur couleur dans les messages
+#   couleur-trace           couleur de la trace au sol (celle de « couleur » sinon)
 #   actif                   false = fermée : rien à trouver, détecteur arrêté
 #   permission              remplace « permission » de ce fichier ("" = tout le monde)
 #   detecteur               false = pas de détecteur
@@ -60,11 +76,13 @@
 #     chat                  lignes envoyées au joueur
 #     titre                 texte, sous-titre, apparition, duree, disparition (ticks)
 #     son                   « clé;volume;hauteur »
-#     effets                objets (matieres, nombre, delai, hauteur, son) qui jaillissent, hologramme (lignes, ticks,
-#                           hauteur), feu-artifice (forme, couleurs, fondu, hauteur), montrés à ce joueur seulement
+#     effets.objets         objets qui jaillissent : matieres, nombre, delai, hauteur, taille, montee-ticks, chute-ticks,
+#                           sommet, ecart, son
+#     effets.hologramme     lignes, ticks, hauteur
+#     effets.feu-artifice   forme, couleurs, fondu, hauteur
 #     commandes             lancées par la console
-#   collectibles.<numéro>   lieu (monde x y z), etapes (x y z, l'entrée de la zone en dernier), trouve (remplace celui de
-#                           la collection)
+#   collectibles.<numéro>   lieu (monde x y z), zone (remplace celle de zones.yml), etapes (secours, voir
+#                           detecteur.secours), trouve (remplace celui de la collection)
 #   Textes et commandes : {joueur} {trouves} {total} {restants}, et les placeholders PlaceholderAPI.
 #
 # Un reload valide tous les fichiers avant de les appliquer : si l'un est invalide, rien ne change et le message le
@@ -81,6 +99,7 @@ base-de-donnees:
   base: minecraft
   utilisateur: utilisateur
   mot-de-passe: "CHANGE_ME"
+  connexions: 3
 
 # Permission exigée pour trouver les têtes d'une collection et se servir de son détecteur ("" = tout le monde).
 permission: "shcollectibles.collection.{collection}"
@@ -93,28 +112,144 @@ modes-refuses:
 # Autre nom accepté pour les placeholders (%autre_total_found_objects_<c>%…). Vide = aucun.
 alias-placeholders: ""
 
-# Particules des têtes pas encore trouvées : distance de vue en blocs, ticks entre deux points.
+# Distance de visée de /shcollectibles add et remove, en blocs.
+admin-portee: 6
+
+# Particules des têtes pas encore trouvées : distance de vue en blocs, ticks entre deux points, points par tour d'orbite,
+# taille des points.
 particules:
   distance: 20
   intervalle-ticks: 5
+  orbite-pas: 10
+  taille: 1.0
 
 detecteur:
   # Commande lancée par le joueur à l'activation quand il n'est pas dans un monde où il reste des collectibles
   # (vide = aucune).
   commande-autre-monde: "spawn"
 
-  # Distances en blocs.
+  # Collections différentes qu'un joueur peut suivre par jour (0 = sans limite) ; celle du jour se reprend librement. Le
+  # jour change à « heure » (0 à 23, heure du serveur).
+  limite:
+    par-jour: 1
+    heure: 0
+
+  # Distances en blocs à marcher.
   distances:
-    # La flèche disparaît à moins de « proche » blocs du collectible et revient au-delà de « loin ».
-    proche: 15
-    loin: 20
+    # La flèche et la trace disparaissent à moins de « proche » blocs du collectible et reviennent au-delà de « loin ».
+    proche: 22
+    loin: 28
     # La cible change pour un collectible plus proche seulement s'il l'est d'au moins « changement » blocs.
     changement: 20
-    # Une étape est passée à « etape » blocs.
-    etape: 4
+    # Un déplacement plus grand d'un coup est une téléportation : le chemin est repris de zéro.
+    teleportation: 30
 
-  # Bruit du collectible cherché, joué à sa place une fois l'entrée passée : « clé;volume;hauteur ». Le volume 2 s'entend
-  # jusqu'à 32 blocs (16 blocs par unité).
+  # Bruit du collectible cherché, joué à sa place : « clé;volume;hauteur » (le volume 1 s'entend jusqu'à 16 blocs),
+  # seulement quand il reste moins de « portee » blocs à marcher, donc jamais à travers un mur.
   bruit:
-    son: "minecraft:block.note_block.hat;2;1.4"
-    intervalle-ticks: 20
+    son: "minecraft:block.note_block.hat;1;1.4"
+    intervalle-ticks: 80
+    portee: 10
+
+  # Secours : sans carte (monde pas encore lu, collectible qu'aucun chemin n'atteint), la flèche suit les « etapes » du
+  # collectible dans l'ordre, l'entrée de sa zone en dernier, puis va droit vers lui.
+  secours:
+    # Une étape est passée à « rayon » blocs à plat et « hauteur » blocs de haut.
+    rayon: 4
+    hauteur: 4
+    # Une étape est sautée quand le joueur est à la hauteur de la suivante (à « depasse-hauteur » près) et nettement plus
+    # près d'elle (moins de « depasse-part » de la distance entre les deux).
+    depasse-hauteur: 3
+    depasse-part: 0.6
+    # Le joueur est déjà dans la zone : à l'abri du ciel (lumière du ciel au plus « abri-lumiere »), à « zone-hauteur »
+    # blocs de haut du collectible au plus, et à moins de « zone-part » de la distance entre l'entrée et lui.
+    zone-hauteur: 8
+    zone-part: 0.8
+    abri-lumiere: 4
+    # L'entrée revient quand il est ressorti à plus de « ressorti » blocs d'elle, une étape quand il s'en est éloigné de
+    # « retour » blocs de plus.
+    ressorti: 16
+    retour: 10
+
+# Chemins à pied. Le plugin lit le monde autour des collectibles qui ont un détecteur, puis garde les chemins.
+guidage:
+  actif: true
+
+  carte:
+    # Lecture du monde après le démarrage, puis tronçons lus et sortes de blocs classées par tick (la lecture est étalée,
+    # le calcul est fait à part).
+    delai-demarrage-secondes: 60
+    troncons-par-tick: 4
+    blocs-par-tick: 400
+    # Blocs lus autour de la boîte qui contient les collectibles, les départs et les raccourcis.
+    marge: 40
+    marge-dessous: 20
+    marge-dessus: 30
+    # Lieux d'où l'on part à pied (monde x y z), en plus du point de départ du monde et des raccourcis. Un endroit qu'on
+    # n'atteint qu'en se téléportant doit être ici.
+    departs: []
+    # Boîtes où le chemin ne passe jamais (monde x1 y1 z1 x2 y2 z2), par exemple une arène.
+    interdits: []
+    # Blocs traversés malgré leur forme, et blocs jamais traversés ni montés (noms du jeu).
+    blocs-ouverts: []
+    blocs-fermes: []
+
+  # Coût de chaque déplacement, en blocs de marche : plus il est grand, plus le chemin fait un détour pour l'éviter.
+  # -1 = jamais (chute, porte-fermee, double-saut).
+  deplacements:
+    saut: 0.5
+    # Saut par-dessus un trou : coût, et longueur la plus grande en blocs (1 à 6).
+    trou: 1.5
+    trou-max: 4
+    # Chute de plus de « chute-libre » blocs : coût, coût par bloc, et hauteur la plus grande.
+    chute-libre: 3
+    chute: 20
+    chute-par-bloc: 0.5
+    chute-max: 60
+    echelle: 1.5
+    nage: 1.5
+    porte-fermee: 6
+    # Double saut : coût, hauteur et longueur les plus grandes (chaque bloc gagné en hauteur raccourcit d'un bloc). -1 sur
+    # un serveur sans double saut.
+    double-saut: 120
+    double-saut-hauteur: 4
+    double-saut-longueur: 9
+
+  # Passages que le plugin ne voit pas (portail, téléporteur, trou à ramper), dans un seul sens.
+  # liens:
+  #   exemple:
+  #     de: "world 10 64 10"
+  #     vers: "world 100 70 -20"
+  #     cout: 5
+  liens: {}
+
+  # Commandes qui rapprochent : proposées au-dessus de la flèche quand elles font gagner au moins « gain » blocs. « lieu »
+  # est l'endroit où la commande amène.
+  # raccourcis:
+  #   exemple:
+  #     commande: "warp exemple"
+  #     lieu: "world 100 64 100"
+  #     gain: 60
+  raccourcis: {}
+
+  suivi:
+    # Chemin d'un joueur recalculé tous les « intervalle-ticks ».
+    intervalle-ticks: 5
+    # Cases du chemin regardées d'avance pour choisir le point que montre la flèche, et distance minimale de ce point.
+    vue: 48
+    avance-min: 3
+    # Distance des yeux à laquelle on clique une tête.
+    portee-clic: 3.6
+    # Le joueur est rattaché au chemin le plus proche : sous lui, puis autour de lui, en blocs (autour : 6 au plus).
+    recherche-dessous: 12
+    recherche-autour: 3
+
+  # Trace au sol, montrée à ce joueur seulement : blocs du chemin dessinés, ticks entre deux passages, taille et hauteur
+  # des points, distance du joueur au premier point.
+  trace:
+    actif: false
+    blocs: 12
+    intervalle-ticks: 8
+    taille: 0.8
+    hauteur: 0.3
+    debut: 1.5

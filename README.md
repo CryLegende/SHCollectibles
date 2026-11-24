@@ -20,21 +20,27 @@
 | Effets | Objets qui jaillissent, hologramme et feu d'artifice, montrés au seul joueur concerné et jamais sauvegardés. |
 | Particules | Un point de couleur sur les têtes proches, montré seulement aux joueurs qui ne les ont pas encore. |
 | Protection | Une tête de collection ne se casse pas, même par un administrateur (`/shcollectibles remove` d'abord). |
-| Détecteur | `/detecteur <collection>` guide vers le collectible restant dont le trajet est le plus court. |
+| Détecteur | `/detecteur <collection>` guide vers le collectible restant dont le chemin à pied est le plus court. |
+| Zones | `%shcollectibles_zone_<zone>%` donne le nombre de collectibles trouvés dans une zone (`zones.yml`), pour un menu ou un codex. |
 
 Le détecteur :
 
-1. Une flèche mène à l'entrée de la zone du collectible (ses `etapes`, l'entrée en dernier), puis vers lui une fois l'entrée passée. Une étape déjà dépassée est sautée, une étape quittée revient ; un joueur à l'abri du ciel et à la hauteur du collectible est considéré dans sa zone.
-2. À moins de `detecteur.distances.proche` blocs, la flèche disparaît et une barre d'action le dit une fois. Le collectible fait un petit bruit à sa place ; jamais avant l'entrée, pour ne pas s'entendre à travers le sol.
+1. Le plugin lit le monde autour des collectibles (par petits bouts, calcul hors du fil principal) et connaît tous les chemins à pied : escaliers, portes, échelles, eau, sauts, chutes, double saut. La flèche montre le prochain point du vrai chemin, donc le détour et l'entrée, jamais un mur à traverser. Un collectible ajouté est guidé tout seul.
+2. À moins de `detecteur.distances.proche` blocs à marcher, la flèche disparaît et une barre d'action le dit une fois. Tout près, le collectible fait un petit bruit à sa place, jamais à travers un mur ou un plancher.
 3. Une fois trouvé, la flèche repart vers le suivant. Le détecteur s'arrête quand la collection est complète ou à la déconnexion.
+4. Un joueur suit un nombre limité de collections par jour (`detecteur.limite`) ; celle du jour se reprend librement.
+
+Ce que la carte ne peut pas voir (portail, téléporteur, grille entre deux barreaux) s'écrit dans `guidage.liens`. `/shcollectibles map check` donne le chemin de chaque collectible et ceux qui ne sont pas atteints, avec l'endroit où leur chemin s'arrête ; `/shcollectibles map rebuild` relit le monde après des travaux.
 
 Une tête pas encore posée (case vide) reste dans la collection, mais le détecteur n'y emmène personne.
+
+Tout se règle sans toucher au code : distances, bruit, limite, coût de chaque déplacement, zones, textes, récompenses et effets.
 
 Utilisé sur : **Opale**, **lobby**.
 
 ## Données
 
-MariaDB, une ligne par trouvaille (`shcollectibles_trouvailles`), par collection complète (`shcollectibles_completes`) et par joueur (`shcollectibles_joueurs`, son pseudo). Plusieurs serveurs partagent la base sous leur nom (`serveur`). Les trouvailles d'un joueur sont lues avant son entrée en jeu et écrites aussitôt, hors du fil principal.
+MariaDB, une ligne par trouvaille (`shcollectibles_trouvailles`), par collection complète (`shcollectibles_completes`) par joueur (`shcollectibles_joueurs`, son pseudo) et par collection suivie dans la journée (`shcollectibles_suivies`). Plusieurs serveurs partagent la base sous leur nom (`serveur`). Les trouvailles d'un joueur sont lues avant son entrée en jeu et écrites aussitôt, hors du fil principal.
 
 Un collectible retiré d'une collection reste compté à ceux qui l'avaient trouvé, sans jamais faire croire que tout est trouvé.
 
@@ -50,7 +56,9 @@ La flèche est dessinée par un plugin qui lit `%shcollectibles_cible%`, par exe
 fleches:
   collectibles:
     cible: "%shcollectibles_cible%"
-    nom: "%shcollectibles_nom%"
+    texte: "%shcollectibles_fleche%"
+    arrive: 0
+    distance-min: 0
 ```
 
 ## Commandes
@@ -64,14 +72,17 @@ fleches:
 | `/shcollectibles info <joueur>` | `shcollectibles.admin.info` | Trouvailles et détecteur d'un joueur connecté |
 | `/shcollectibles add <collection>` | `shcollectibles.admin.add` | Ajoute le bloc visé à la collection |
 | `/shcollectibles remove` | `shcollectibles.admin.remove` | Retire le bloc visé de sa collection |
-| `/shcollectibles step <collection> <numéro> <add\|clear>` | `shcollectibles.admin.step` | Ajoute une étape du détecteur là où vous êtes, ou efface les étapes |
+| `/shcollectibles step <collection> <numéro> <add\|clear>` | `shcollectibles.admin.step` | Étapes de secours d'un collectible qu'aucun chemin n'atteint |
 | `/shcollectibles tp <collection> <numéro>` | `shcollectibles.admin.tp` | Se téléporter au collectible |
 | `/shcollectibles give <joueur> <collection> <numéro>` | `shcollectibles.admin.give` | Donne un collectible, avec sa récompense |
 | `/shcollectibles reset <joueur\|*> <collection\|*>` | `shcollectibles.admin.reset` | Efface des trouvailles |
+| `/shcollectibles limit <joueur>` | `shcollectibles.admin.limit` | Rend à un joueur sa limite du jour |
 | `/shcollectibles enable\|disable <collection>` | `shcollectibles.admin.enable`, `.disable` | Ouvre ou ferme une collection |
+| `/shcollectibles zones [zone]` | `shcollectibles.admin.zones` | Zones et leur compte, ou collectibles d'une zone |
+| `/shcollectibles map [rebuild\|check]` | `shcollectibles.admin.map` | État des cartes, relecture du monde, vérification des chemins |
 | `/shcollectibles import <dossier players>` | `shcollectibles.admin.import` | Console : reprend les trouvailles de TheSearch |
 
-`shcollectibles.admin` donne toutes les sous-commandes. La permission exigée pour chaque collection est réglée dans `config.yml` (`permission`) ou dans son fichier.
+`shcollectibles.admin` donne toutes les sous-commandes, `shcollectibles.detecteur.illimite` enlève la limite par jour. La permission exigée pour chaque collection est réglée dans `config.yml` (`permission`) ou dans son fichier.
 
 ## Placeholders
 
@@ -87,14 +98,17 @@ fleches:
 | `%shcollectibles_total_players_with_completed_<c>%` | Joueurs qui ont complété la collection |
 | `%shcollectibles_total_completed_searches%` | Collections complètes du joueur |
 | `%shcollectibles_is_enabled_<c>%` | `true` si la collection est ouverte |
-| `%shcollectibles_menu_<c>%` | Ligne de menu du détecteur : activer, arrêter ou complète |
-| `%shcollectibles_cible%`, `%shcollectibles_nom%` | Lieu que la flèche doit montrer (`monde x y z`, vide sinon) et texte au-dessus |
+| `%shcollectibles_zone_<z>%` | Ligne « trouvés 2/3 » d'une zone, vide si elle n'a aucun collectible |
+| `%shcollectibles_zone_trouves_<z>%`, `%shcollectibles_zone_total_<z>%` | Les deux nombres seuls |
+| `%shcollectibles_menu_<c>%` | Ligne de menu du détecteur : activer, arrêter, limite du jour atteinte ou complète |
+| `%shcollectibles_cible%`, `%shcollectibles_fleche%` | Point que la flèche doit montrer (`monde x y z`, vide sinon) et texte au-dessus |
 | `%shcollectibles_collection%` | Collection du détecteur actif |
 
 ## Configuration
 
 Fichiers par défaut, avec des valeurs d'exemple :
 
-- [`config.yml`](src/main/resources/config.yml) : base, permission, particules, détecteur, et la description des fichiers de collection
+- [`config.yml`](src/main/resources/config.yml) : base, permission, particules, détecteur, guidage, et la description des fichiers de collection
+- [`zones.yml`](src/main/resources/zones.yml) : zones dont on compte les collectibles
 - [`collections/exemple.yml`](src/main/resources/collections/exemple.yml) : une collection
 - [`messages.yml`](src/main/resources/messages.yml) : messages, barre d'action et lignes de menu
