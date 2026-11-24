@@ -159,7 +159,7 @@ final class Reseau {
             int z = map.cellZ(cells[i]);
             map.moves(x, y, z, this);
             for (Guidage.Link l : links) {
-                if (l.from().world().equals(world) && l.to().world().equals(world) && l.from().distance(x + 0.5, y, z + 0.5) <= 1.6) {
+                if (l.from().world().equals(world) && l.to().world().equals(world) && l.from().distance(x + 0.5, y, z + 0.5) <= l.radius()) {
                     int cell = nearest(map, (int) Math.floor(l.to().x()), (int) Math.floor(l.to().y()), (int) Math.floor(l.to().z()), 4, 2);
                     if (cell >= 0) {
                         add(cell, l.cost(), Carte.LINK);

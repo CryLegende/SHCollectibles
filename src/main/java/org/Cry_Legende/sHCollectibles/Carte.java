@@ -25,15 +25,8 @@ final class Carte {
 
     /** Directions essayées pour un double saut. */
     private static final double[][] FLIGHTS = new double[16][2];
-    /** Blocs gardés devant soi en se posant, longueur d'une arrivée sûre, et arrivées plus basses par direction. */
-    private static final double SAFE = 1.5;
-    private static final double WIDE = 2.5;
+    /** Arrivées plus basses essayées par direction. */
     private static final int MAX_LOWER = 3;
-
-    /** Vol d'un double saut tick par tick : hauteur et avancée (course, saut, second saut au sommet). */
-    private static final double[] FLIGHT_UP = new double[200];
-    private static final double[] FLIGHT_ON = new double[200];
-    private static final int FLIGHT_TOP;
     /** À partir de cette chute, le vol est vérifié case par case. */
     private static final int CHECKED_DROP = 4;
 
@@ -42,28 +35,6 @@ final class Carte {
             FLIGHTS[i][0] = Math.cos(i * Math.PI * 2 / FLIGHTS.length);
             FLIGHTS[i][1] = Math.sin(i * Math.PI * 2 / FLIGHTS.length);
         }
-        double speed = 0.48;
-        double up = 0.42;
-        double y = 0;
-        double on = 0;
-        int top = 0;
-        for (int t = 0; t < FLIGHT_UP.length; t++) {
-            if (t == 6) {
-                speed = 1;
-                up = 0.8;
-            }
-            speed += 0.025;
-            on += speed;
-            y += up;
-            FLIGHT_UP[t] = y;
-            FLIGHT_ON[t] = on;
-            if (y > FLIGHT_UP[top]) {
-                top = t;
-            }
-            up = (up - 0.08) * 0.98;
-            speed *= 0.91;
-        }
-        FLIGHT_TOP = top;
     }
 
     final int x0;
@@ -74,6 +45,7 @@ final class Carte {
     final int nz;
     private final byte[] cells;
     private final Guidage.Costs costs;
+    private final Vol flight;
     private final List<Boite> forbidden;
 
     Carte(int x0, int y0, int z0, int nx, int ny, int nz, byte[] cells, Guidage.Costs costs, List<Boite> forbidden) {
@@ -85,6 +57,7 @@ final class Carte {
         this.nz = nz;
         this.cells = cells;
         this.costs = costs;
+        flight = new Vol(costs.leap().power(), costs.leap().speed());
         this.forbidden = forbidden;
     }
 
@@ -345,7 +318,7 @@ final class Carte {
             if (kind != 0 && kind == run && Math.abs(landing - level) <= 1) {
                 to = k;
                 level = landing;
-                if (!done && k <= from + SAFE) {
+                if (!done && k <= from + leap.edge()) {
                     px = tx;
                     py = landing;
                     pz = tz;
@@ -368,7 +341,7 @@ final class Carte {
                 pz = tz;
                 pk = k;
             }
-            if (run != 0 && !done && to - from >= WIDE) {
+            if (run != 0 && !done && to - from >= leap.wide()) {
                 leap(px, py, pz, pk, y, false, out);
                 if (run == 1) {
                     return true;
@@ -395,13 +368,10 @@ final class Carte {
         if (y - landing < CHECKED_DROP) {
             return true;
         }
-        int end = FLIGHT_TOP;
-        while (end < FLIGHT_UP.length - 1 && FLIGHT_UP[end] > landing - y) {
-            end++;
-        }
+        int end = flight.landing(landing - y);
         for (int t = 0; t < end; t++) {
-            double on = k * FLIGHT_ON[t] / FLIGHT_ON[end];
-            double up = y + FLIGHT_UP[t];
+            double on = k * flight.part(t, end);
+            double up = y + flight.up(t);
             int fx = (int) Math.floor(x + 0.5 + ux * on);
             int fz = (int) Math.floor(z + 0.5 + uz * on);
             int fy = (int) Math.floor(up);

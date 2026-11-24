@@ -327,7 +327,7 @@ final class Cartes {
             cells[i] = kinds[r.blocks[i]];
         }
         List<Boite> forbidden = g.forbidden().stream().filter(b -> b.world().equals(m.name)).toList();
-        Carte map = new Carte(r.b[0], r.b[1], r.b[2], r.nx, r.ny, r.nz, cells, g.costs(), forbidden);
+        Carte map = new Carte(r.b[0], r.b[1], r.b[2], r.nx, r.ny, r.nz, cells, g.costs().in(m.name), forbidden);
         List<int[]> from = new ArrayList<>();
         from.add(new int[]{spawn.getBlockX(), spawn.getBlockY(), spawn.getBlockZ()});
         for (Lieu l : g.departures()) {

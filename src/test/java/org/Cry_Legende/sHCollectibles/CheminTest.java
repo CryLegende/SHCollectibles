@@ -40,7 +40,7 @@ class CheminTest {
         }
 
         Reseau build(int x, int y, int z) {
-            Carte map = new Carte(0, 0, 0, N, H, N, cells, cfg.costs(), forbidden);
+            Carte map = new Carte(0, 0, 0, N, H, N, cells, cfg.costs().in("w"), forbidden);
             return Reseau.build(map, List.of(new int[]{x, y, z}), links, "w");
         }
     }
@@ -207,6 +207,17 @@ class CheminTest {
     }
 
     @Test
+    void leDoubleSautNExistePasDansTousLesMondes() {
+        Monde m = falaise();
+        m.cfg = config("double-saut-mondes: [spawn]");
+        assertEquals(-1, m.build(2, 11, 12).locate(17.5, 3, 12.5, 2, 0), "pas dans ce monde");
+        m.cfg = config("double-saut-mondes: [spawn, w]");
+        assertTrue(m.build(2, 11, 12).locate(17.5, 3, 12.5, 2, 0) >= 0);
+        m.cfg = config("sans-double-saut: ['ailleurs 0 0 0 23 15 23']");
+        assertTrue(m.build(2, 11, 12).locate(17.5, 3, 12.5, 2, 0) >= 0, "la boîte d'un autre monde ne compte pas ici");
+    }
+
+    @Test
     void unVolBarreParUnMatNEstPasPropose() {
         Monde m = falaise().box(10, 0, 0, 10, H - 1, N - 1, Blocs.HAUT);
         assertEquals(-1, m.build(2, 11, 12).locate(17.5, 3, 12.5, 2, 0));
@@ -287,7 +298,7 @@ class CheminTest {
         Reseau r = m.build(2, 1, 5);
         assertTrue(cost(r, to(r, 20, 1, 5), 2.5, 1, 5.5) > 30, "l'arène est contournée");
         Monde walled = new Monde().box(10, 1, 0, 10, H - 1, N - 1, Blocs.PLEIN);
-        walled.links.add(new Guidage.Link(new Lieu("w", 5, 1, 5), new Lieu("w", 18, 1, 5), 4));
+        walled.links.add(new Guidage.Link(new Lieu("w", 5, 1, 5), new Lieu("w", 18, 1, 5), 4, 1.6));
         Reseau s = walled.build(2, 1, 5);
         assertTrue(to(s, 20, 1, 5).reaches(s.locate(2.5, 1, 5.5, 2, 0)), "par le portail déclaré");
         assertFalse(to(s, 2, 1, 5).reaches(s.locate(20.5, 1, 5.5, 2, 0)), "un seul sens");

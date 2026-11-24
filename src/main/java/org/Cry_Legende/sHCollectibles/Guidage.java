@@ -14,7 +14,7 @@ record Guidage(boolean enabled, int startDelaySeconds, int margin, int marginBel
                List<Shortcut> shortcuts, Costs costs, Walk walk, Trail trail, Hint hint) {
 
     /** Passage que le plugin ne voit pas (portail, téléporteur, trou à ramper). */
-    record Link(Lieu from, Lieu to, double cost) {
+    record Link(Lieu from, Lieu to, double cost, double radius) {
     }
 
     /** Commande qui rapproche du collectible : proposée au-dessus de la flèche quand elle fait gagner « gain » blocs. */
@@ -24,6 +24,11 @@ record Guidage(boolean enabled, int startDelaySeconds, int margin, int marginBel
     /** Coût de chaque déplacement, en blocs de marche ; négatif = jamais. */
     record Costs(double jump, double gap, double gapDeep, double fall, double fallPerBlock, int fallFree, int highFrom, double high, double climb, double swim, double door, double leaves,
                  Leap leap, int gapMax, int fallMax) {
+
+        /** Les mêmes dans ce monde : le double saut n'existe pas partout. */
+        Costs in(String world) {
+            return new Costs(jump, gap, gapDeep, fall, fallPerBlock, fallFree, highFrom, high, climb, swim, door, leaves, leap.in(world), gapMax, fallMax);
+        }
     }
 
     /**
@@ -31,7 +36,12 @@ record Guidage(boolean enabled, int startDelaySeconds, int margin, int marginBel
      * un peu quand on se pose plus bas). « narrow » : coût en plus quand l'arrivée est étroite.
      */
     record Leap(double cost, double perBlock, int height, int length, double riseLoss, double dropGain, double dropGainMax, double narrow,
-                List<Boite> without) {
+                double edge, double wide, double power, double speed, List<String> worlds, List<Boite> without) {
+
+        Leap in(String world) {
+            return new Leap(worlds.isEmpty() || worlds.contains(world) ? cost : -1, perBlock, height, length, riseLoss, dropGain, dropGainMax, narrow,
+                    edge, wide, power, speed, worlds, without.stream().filter(b -> b.world().equals(world)).toList());
+        }
 
         boolean possible() {
             return cost >= 0;
@@ -60,7 +70,7 @@ record Guidage(boolean enabled, int startDelaySeconds, int margin, int marginBel
     }
 
     /** Double saut annoncé à moins de « announce » blocs de l'élan, et sa ligne de points. */
-    record Hint(double announce, boolean line, int intervalTicks, double gap, int max, float size, double ring, int rgb) {
+    record Hint(double announce, double top, boolean line, int intervalTicks, double gap, int max, float size, double ring, int rgb) {
     }
 
     /** Points de couleur au sol, le long du chemin. */
@@ -88,7 +98,7 @@ record Guidage(boolean enabled, int startDelaySeconds, int margin, int marginBel
             for (String id : l.getKeys(false)) {
                 String where = "guidage.liens." + id;
                 links.add(new Link(Lieu.read(l.getString(id + ".de"), where + ".de"), Lieu.read(l.getString(id + ".vers"), where + ".vers"),
-                        Math.max(0.1, l.getDouble(id + ".cout", 5))));
+                        Math.max(0.1, l.getDouble(id + ".cout", 5)), Math.max(0.5, l.getDouble(id + ".rayon", 1.6))));
             }
         }
         List<Shortcut> shortcuts = new ArrayList<>();
@@ -114,6 +124,9 @@ record Guidage(boolean enabled, int startDelaySeconds, int margin, int marginBel
                                 Math.max(1, d.getInt("double-saut-hauteur", 4)), Math.max(1, Math.min(24, d.getInt("double-saut-longueur", 11))),
                                 Math.max(0, d.getDouble("double-saut-perte-montee", 0.75)), Math.max(0, d.getDouble("double-saut-gain-descente", 0.16)),
                                 Math.max(0, Math.min(12, d.getDouble("double-saut-gain-max", 5))), Math.max(0, d.getDouble("double-saut-etroit", 20)),
+                                Math.max(0, d.getDouble("double-saut-bord", 1.5)), Math.max(0, d.getDouble("double-saut-large", 2.5)),
+                                Math.max(0, d.getDouble("double-saut-puissance", 0.8)), Math.max(0, d.getDouble("double-saut-elan", 1)),
+                                List.copyOf(d.getStringList("double-saut-mondes")),
                                 boxes(d, "sans-double-saut", "guidage.deplacements.sans-double-saut")),
                         Math.max(1, Math.min(6, d.getInt("trou-max", 4))), Math.max(1, d.getInt("chute-max", 60))),
                 new Walk(Math.max(4, s.getInt("vue", 48)), Math.max(2, Math.min(40, s.getInt("points-max", 10))), Math.max(1, s.getDouble("portee-clic", 3.6)),
@@ -122,7 +135,7 @@ record Guidage(boolean enabled, int startDelaySeconds, int margin, int marginBel
                         Math.max(0, s.getInt("en-l-air-ticks", 80)), Math.max(0, s.getInt("perdu-ticks", 100))),
                 new Trail(t.getBoolean("actif", false), Math.max(1, t.getInt("blocs", 12)), Math.max(1, t.getInt("intervalle-ticks", 8)),
                         (float) Math.max(0.1, t.getDouble("taille", 0.8)), t.getDouble("hauteur", 0.3), Math.max(0, t.getDouble("debut", 1.5))),
-                new Hint(h == null ? 8 : Math.max(0, h.getDouble("annonce", 8)), line == null || line.getBoolean("actif", true),
+                new Hint(h == null ? 8 : Math.max(0, h.getDouble("annonce", 8)), h == null ? 3 : Math.max(0, h.getDouble("sommet", 3)), line == null || line.getBoolean("actif", true),
                         line == null ? 5 : Math.max(1, line.getInt("intervalle-ticks", 5)), line == null ? 0.8 : Math.max(0.2, line.getDouble("ecart", 0.8)),
                         line == null ? 30 : Math.max(2, Math.min(200, line.getInt("points-max", 30))), line == null ? 1f : (float) Math.max(0.1, line.getDouble("taille", 1)),
                         line == null ? 0.9 : Math.max(0, line.getDouble("cercle", 0.9)), rgb(line)));

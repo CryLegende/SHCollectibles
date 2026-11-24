@@ -10,11 +10,11 @@ import java.util.List;
 record Trajet(double length, List<Double> afterLeaps, List<Lieu> points, Leap leap, List<Lieu> trail) {
 
     /** Prochain double saut : blocs jusqu'à l'élan, d'où, et où l'on se pose. */
-    record Leap(double away, Lieu from, Lieu to) {
+    record Leap(double away, Lieu from, Lieu to, double rise) {
 
-        /** Sommet du vol, pour que la flèche et la ligne de points passent par le haut. */
+        /** Sommet du vol, « rise » blocs au-dessus du plus haut de ses deux bouts : la flèche et la ligne passent par là. */
         Lieu top() {
-            return new Lieu(from.world(), (from.x() + to.x()) / 2, Math.max(from.y(), to.y()) + RISE, (from.z() + to.z()) / 2);
+            return new Lieu(from.world(), (from.x() + to.x()) / 2, Math.max(from.y(), to.y()) + rise, (from.z() + to.z()) / 2);
         }
 
         /** Points du vol, du départ à l'arrivée : une courbe par le sommet, « max » points au plus. */
@@ -38,8 +38,6 @@ record Trajet(double length, List<Double> afterLeaps, List<Lieu> points, Leap le
         }
     }
 
-    /** Hauteur du sommet d'un double saut au-dessus du plus haut de ses deux bouts. */
-    private static final double RISE = 3;
     /** Arrêt de sécurité du parcours d'un chemin. */
     private static final int MAX_STEPS = 20_000;
 
@@ -97,7 +95,7 @@ record Trajet(double length, List<Double> afterLeaps, List<Lieu> points, Leap le
             boolean jump = kind == Carte.LEAP;
             if (jump) {
                 if (leap == null && count <= look) {
-                    leap = new Leap(length, place(r, world, at, 0), place(r, world, next, 0));
+                    leap = new Leap(length, place(r, world, at, 0), place(r, world, next, 0), cfg.hint().top());
                 }
             }
             length += step(r, at, next);
@@ -109,7 +107,7 @@ record Trajet(double length, List<Double> afterLeaps, List<Lieu> points, Leap le
         for (int i = 0; i < landed.size(); i++) {
             landed.set(i, length - landed.get(i));
         }
-        return new Trajet(length, landed, points(r, path, kinds, count, world, px, py, pz, cfg.walk().points()), leap,
+        return new Trajet(length, landed, points(r, path, kinds, count, world, px, py, pz, cfg.walk().points(), cfg.hint().top()), leap,
                 trail(r, path, count, world, cfg.trail()));
     }
 
@@ -117,7 +115,7 @@ record Trajet(double length, List<Double> afterLeaps, List<Lieu> points, Leap le
      * Points du chemin : d'abord le joueur, puis chaque endroit où il faut changer de direction (le plus loin où l'on va tout
      * droit), les deux bouts de chaque échelle, chute et saut, et le sommet des doubles sauts.
      */
-    private static List<Lieu> points(Reseau r, int[] path, byte[] kinds, int count, String world, double px, double py, double pz, int max) {
+    private static List<Lieu> points(Reseau r, int[] path, byte[] kinds, int count, String world, double px, double py, double pz, int max, double rise) {
         List<Lieu> out = new ArrayList<>();
         double ax = px;
         double ay = r.y(path[0]);
@@ -144,7 +142,7 @@ record Trajet(double length, List<Double> afterLeaps, List<Lieu> points, Leap le
                 }
                 int next = i + 1;
                 if (kinds[i] == Carte.LEAP) {
-                    add(out, new Leap(0, place(r, world, path[i], 0), place(r, world, path[next], 0)).top());
+                    add(out, new Leap(0, place(r, world, path[i], 0), place(r, world, path[next], 0), rise).top());
                 }
                 while (kinds[i] == Carte.WALK && next + 1 < count && kinds[next] == Carte.WALK && r.x(path[next]) == r.x(path[next + 1])
                         && r.z(path[next]) == r.z(path[next + 1])) {

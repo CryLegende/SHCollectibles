@@ -269,15 +269,24 @@ guidage:
     double-saut-perte-montee: 0.75
     double-saut-gain-descente: 0.16
     double-saut-gain-max: 5
-    # Boîtes où le double saut est coupé (monde x1 y1 z1 x2 y2 z2).
+    # On se pose à « bord » blocs du bord de l'arrivée ; elle est étroite en dessous de 1 bloc, sûre à « large » blocs.
+    double-saut-bord: 1.5
+    double-saut-large: 2.5
+    # Vitesses qu'il donne, en blocs par tick : vers le haut et vers l'avant (celles du plugin de double saut).
+    double-saut-puissance: 0.8
+    double-saut-elan: 1.0
+    # Mondes où il existe (vide = tous), et boîtes où il est coupé (monde x1 y1 z1 x2 y2 z2).
+    double-saut-mondes: []
     sans-double-saut: []
 
-  # Passages que le plugin ne voit pas (portail, téléporteur, trou à ramper), dans un seul sens.
+  # Passages que le plugin ne voit pas (portail, téléporteur, trou à ramper), dans un seul sens. « rayon » : distance à
+  # laquelle on est dessus (1.6 s'il manque).
   # liens:
   #   exemple:
   #     de: "world 10 64 10"
   #     vers: "world 100 70 -20"
   #     cout: 5
+  #     rayon: 1.6
   liens: {}
 
   # Commandes qui rapprochent : proposées au-dessus de la flèche quand elles font gagner au moins « gain » blocs. « lieu »
@@ -310,6 +319,8 @@ guidage:
   # points de l'élan à l'arrivée et un cercle où se poser, montrés à ce joueur seulement.
   double-saut:
     annonce: 8
+    # Hauteur du sommet de la ligne au-dessus du plus haut des deux bouts du saut.
+    sommet: 3
     trace:
       actif: true
       intervalle-ticks: 5
