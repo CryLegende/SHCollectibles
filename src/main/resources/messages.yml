@@ -1,5 +1,5 @@
 # ============================================================================
-#  SHDetecteur : messages du chat, barre d'action et lignes de menu
+#  SHCollectibles : messages du chat, barre d'action et lignes de menu
 # ============================================================================
 #  Codes couleur & et &#RRGGBB acceptés. Format SkyHand pour le chat : préfixe
 #  de la couleur du type, texte en &7, mots importants dans la couleur du type.
@@ -11,25 +11,57 @@
 # ============================================================================
 
 chat:
-  active: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis ce &abruit&7."
-  arrete: "&7&l« &e&lSH &8&l» &7Détecteur {nom} &earrêté&7."
-  aucun: "&7&l« &e&lSH &8&l» &7Choisissez une collection dans &e/collections&7."
-  complete: "&7&l« &e&lSH &8&l» &7Votre collection {nom} &7est déjà &ecomplète&7."
-  anciennete: "&7&l« &c&lSH &8&l» &7Vous n'avez pas assez d'ancienneté &8(/playtime)"
-  indisponible: "&7&l« &c&lSH &8&l» &7La collection {nom} &7n'est &cpas disponible &7pour l'instant."
+  # Clic sur une tête
+  deja-trouve: "&7&l« &e&lSH &8&l» &7Vous avez déjà trouvé ce collectible !"
+  deja-complete: "&7&l« &e&lSH &8&l» &7Votre collection {nom} &7est déjà &ecomplète&7."
+  anciennete: "&7&l« &c&lSH &8&l» &7Vous n'avez pas assez d'ancienneté &8(/playtime) &7pour compléter les collections."
+  mode-refuse: "&7&l« &c&lSH &8&l» &7Vous ne pouvez rien ramasser dans ce &cmode de jeu&7."
+  fermee: "&7&l« &c&lSH &8&l» &7La collection {nom} &7est &cfermée&7."
+  chargement: "&7&l« &e&lSH &8&l» &7Vos collections se chargent, réessayez dans une seconde."
+  erreur: "&7&l« &c&lSH &8&l» &7Trouvaille &cpas enregistrée&7, réessayez dans un instant."
+  protege: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas casser ce &ccollectible&7."
+  protege-admin: "&7&l« &6&lSH &8&l» &7Collectible &6{collection} {numero}&7, &6/shcollectibles remove &7pour le retirer avant de casser la tête."
+
+  # Détecteur
+  detecteur-active: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis ce &abruit&7."
+  detecteur-arrete: "&7&l« &e&lSH &8&l» &7Détecteur {nom} &earrêté&7."
+  detecteur-aucun: "&7&l« &e&lSH &8&l» &7Choisissez une collection dans &e/collections&7."
+
+  # Administration
   joueurs-seulement: "&7&l« &c&lSH &8&l» &7Commande réservée aux joueurs."
+  console-seulement: "&7&l« &c&lSH &8&l» &7Commande réservée à la console."
   permission: "&7&l« &c&lSH &8&l» &7Vous n'avez pas la permission."
   utilisation: "&7&l« &e&lSH &8&l» &7Tapez &e{commandes}&7."
   joueur-inconnu: "&7&l« &c&lSH &8&l» &7Joueur &c{joueur} &7introuvable ou pas connecté."
-  info: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur}&7, {nom} &7n°&e{numero} &7à &e{distance} blocs &8({lieu})"
-  info-arrete: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur} &7arrêté."
-  reload-ok: "&7&l« &a&lSH &8&l» &7Configuration de &aSHDetecteur &7rechargée."
-  reload-erreur: "&7&l« &c&lSH &8&l» &7{fichier} invalide, rien n'a changé. &c{erreur}"
+  collection-inconnue: "&7&l« &c&lSH &8&l» &7Collection &c{collection} &7inconnue."
+  numero-inconnu: "&7&l« &c&lSH &8&l» &7Pas de collectible &c{numero} &7dans &c{collection}&7."
+  liste: "&7&l« &e&lSH &8&l» {nom} &8({collection}) &e{total} &7têtes, &e{complete} &7joueurs complets, {etat}"
+  liste-collectible: "&7&l« &e&lSH &8&l» &7n°&e{numero} &7en &e{lieu}&7, étapes &e{etapes}"
+  info: "&7&l« &e&lSH &8&l» &7{joueur} {nom} &e{trouves}&7/&e{total} &8{numeros}"
+  info-detecteur: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur}&7, {nom} &7n°&e{numero} &7à &e{distance} blocs&7, étape &e{etape} &8({lieu})"
+  info-detecteur-arrete: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur} &7arrêté."
+  viser: "&7&l« &c&lSH &8&l» &7Visez la &ctête &7à 6 blocs au plus."
+  deja-collectible: "&7&l« &c&lSH &8&l» &7Cette tête est déjà &c{collection} {numero}&7."
+  autre-monde: "&7&l« &c&lSH &8&l» &7Ce collectible est dans le monde &c{monde}&7."
+  ajoute: "&7&l« &a&lSH &8&l» &7Tête ajoutée, &a{collection} {numero}&7."
+  retire: "&7&l« &a&lSH &8&l» &7Tête retirée, &a{collection} {numero}&7."
+  etape-ajoutee: "&7&l« &a&lSH &8&l» &7Étape &a{n} &7posée pour &a{collection} {numero}&7."
+  etapes-effacees: "&7&l« &a&lSH &8&l» &7Étapes de &a{collection} {numero} &7effacées."
+  donne: "&7&l« &a&lSH &8&l» &a{collection} {numero} &7donné à &a{joueur}&7."
+  remis-a-zero: "&7&l« &a&lSH &8&l» &7Trouvailles effacées, joueur &a{joueur}&7, collection &a{collection} &8({n} lignes)"
+  ouverte: "&7&l« &a&lSH &8&l» &7Collection &a{collection} &7ouverte."
+  refermee: "&7&l« &a&lSH &8&l» &7Collection &a{collection} &7fermée."
+  reprise: "&7&l« &a&lSH &8&l» &7Reprise de &a{joueurs} &7joueurs, &a{trouvailles} &7trouvailles et &a{completes} &7collections complètes lues &8(en base {base-trouvailles} et {base-completes})"
+  reload-ok: "&7&l« &a&lSH &8&l» &7Configuration de &aSHCollectibles &7rechargée, &a{n} &7collections."
+  reload-erreur: "&7&l« &c&lSH &8&l» &7Fichier invalide, rien n'a changé. &c{erreur}"
 
 # Montré une fois par collectible, quand la flèche disparaît
 barre-proche: "{objet} &ftout près, &7suivez le bruit"
 
-# %shdetecteur_menu_<collection>%
+# Au-dessus de la flèche quand elle mène à l'entrée de la zone
+nom-entree: "{objet} &8· &fentrée"
+
+# %shcollectibles_menu_<collection>%
 menu:
   activer: "&8&o(( {couleur}&oClic Gauche &f&opour activer le {couleur}&odétecteur &8&o))"
   arreter: "&8&o(( {couleur}&oClic Gauche &f&opour arrêter le {couleur}&odétecteur &8&o))"

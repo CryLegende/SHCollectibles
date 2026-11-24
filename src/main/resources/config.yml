@@ -1,67 +1,120 @@
 # ======================================================================== #
-#                       SHDetecteur - Configuration                        #
+#                      SHCollectibles - Configuration                      #
 # ======================================================================== #
 #
-# Détecteur de collectibles TheSearch : le joueur l'active pour une collection. Une flèche l'emmène vers le
-# collectible restant le plus proche, disparaît quand il est tout près, et le collectible fait un petit bruit à
-# intervalle régulier. Une fois trouvé, la flèche repart vers le suivant.
+# Collections de têtes cachées dans le monde : un clic droit sur une tête la compte, donne la récompense de la
+# collection, et celle de fin quand tout est trouvé. Une collection par fichier de collections/ (le nom du fichier est
+# son identifiant, gardé avec les trouvailles : ne pas le renommer).
 #
-# Le détecteur lit les collectibles, leurs positions et les trouvailles dans TheSearch. Il garde ses conditions :
-# la permission thesearch.search.<collection> est exigée comme pour ramasser le collectible. Il s'arrête à la
-# déconnexion ou quand la collection est complète.
-#
-# La flèche est dessinée par un plugin qui lit %shdetecteur_cible% (SHGuide, section « fleches »).
+# Le détecteur guide un joueur vers le collectible restant le plus proche : une flèche l'emmène à l'entrée de sa zone
+# (« etapes » du collectible) puis vers lui, disparaît quand il est tout près, et le collectible fait un petit bruit à
+# intervalle régulier. Il repart vers le suivant, s'arrête quand la collection est complète ou à la déconnexion. La
+# flèche est dessinée par un plugin qui lit %shcollectibles_cible% (SHGuide, section « fleches »).
 #
 # Commandes :
-#   /detecteur <collection>       Active le détecteur de la collection, l'arrête s'il était déjà actif (shdetecteur.use).
-#   /detecteur                    Arrête le détecteur (shdetecteur.use).
-#   /shdetecteur reload           Recharge config.yml et messages.yml (shdetecteur.admin.reload).
-#   /shdetecteur info <joueur>    Collection, cible et distance d'un joueur (shdetecteur.admin.info).
+#   /detecteur <collection>       Active le détecteur de la collection, l'arrête s'il était déjà actif.
+#   /detecteur                    Arrête le détecteur.
+#   /shcollectibles reload        Recharge config.yml, messages.yml et collections/.
+#   /shcollectibles list [collection]                           Collections, ou collectibles d'une collection.
+#   /shcollectibles info <joueur>                               Trouvailles et détecteur d'un joueur connecté.
+#   /shcollectibles add <collection>                            Ajoute le bloc visé à la collection.
+#   /shcollectibles remove                                      Retire le bloc visé de sa collection.
+#   /shcollectibles step <collection> <numéro> <add|clear>      Ajoute une étape du détecteur là où vous êtes (l'entrée
+#                                                               de la zone en dernier), ou efface les étapes.
+#   /shcollectibles tp <collection> <numéro>                    Se téléporter au collectible.
+#   /shcollectibles give <joueur> <collection> <numéro>         Donne un collectible, avec sa récompense.
+#   /shcollectibles reset <joueur|*> <collection|*>             Efface des trouvailles.
+#   /shcollectibles enable|disable <collection>                 Ouvre ou ferme une collection.
+#   /shcollectibles import <dossier players>                    Console : reprend les trouvailles de TheSearch. Une ligne
+#                                                               déjà enregistrée n'est pas touchée.
 #
 # Permissions :
-#   shdetecteur.use                   Se servir du détecteur.
-#   shdetecteur.admin                 Toutes les sous-commandes de /shdetecteur.
-#   shdetecteur.admin.<sous-commande> reload, info.
+#   shcollectibles.detecteur             Se servir du détecteur.
+#   shcollectibles.admin                 Toutes les sous-commandes de /shcollectibles.
+#   shcollectibles.admin.<sous-commande> reload, list, info, add, remove, step, tp, give, reset, enable, disable, import.
+#   La permission exigée pour une collection est réglée par « permission » plus bas.
 #
-# Placeholders :
-#   %shdetecteur_cible%               Lieu que la flèche doit montrer, « monde x y z ». Vide quand le détecteur est
-#                                     arrêté, que le collectible est tout près ou dans un autre monde.
-#   %shdetecteur_nom%                 Nom du collectible cherché (objet de la collection). Vide si arrêté.
-#   %shdetecteur_collection%          Collection du détecteur actif. Vide si arrêté.
-#   %shdetecteur_menu_<collection>%   Ligne de menu : activer, arrêter ou collection complète (messages.yml).
+# Placeholders (<c> = identifiant de la collection) :
+#   %shcollectibles_total_found_objects_<c>%           Collectibles trouvés.
+#   %shcollectibles_remaining_objects_<c>%             Collectibles restants.
+#   %shcollectibles_total_objects_<c>%                 Collectibles de la collection.
+#   %shcollectibles_has_completed_<c>%                 true si la collection est complète.
+#   %shcollectibles_has_found_object_<c>_<numéro>%     true si ce collectible est trouvé.
+#   %shcollectibles_total_players_with_completed_<c>%  Joueurs qui ont complété la collection.
+#   %shcollectibles_total_completed_searches%          Collections complètes du joueur.
+#   %shcollectibles_is_enabled_<c>%                    true si la collection est ouverte.
+#   %shcollectibles_menu_<c>%                          Ligne de menu du détecteur : activer, arrêter ou complète.
+#   %shcollectibles_cible%                             Lieu que la flèche doit montrer, « monde x y z ». Vide quand le
+#                                                      détecteur est arrêté, le collectible tout près ou ailleurs.
+#   %shcollectibles_nom%                               Texte au-dessus de la flèche.
+#   %shcollectibles_collection%                        Collection du détecteur actif.
 #
-# Un reload valide config.yml et messages.yml avant de les appliquer : si l'un est invalide, rien ne change et le
-# message donne le fichier et l'erreur.
+# Fichier d'une collection :
+#   nom, objet, couleur     nom de la collection, d'un collectible, et leur couleur dans les messages
+#   actif                   false = fermée : rien à trouver, détecteur arrêté
+#   permission              remplace « permission » de ce fichier ("" = tout le monde)
+#   detecteur               false = pas de détecteur
+#   particules              point de couleur autour des têtes pas encore trouvées : couleur, hauteur, hauteur-max (au
+#                           hasard entre les deux), orbite (rayon, 0 = fixe)
+#   trouve, complet         ce qui se passe à chaque tête, et à la dernière (à la place de « trouve ») :
+#     chat                  lignes envoyées au joueur
+#     titre                 texte, sous-titre, apparition, duree, disparition (ticks)
+#     son                   « clé;volume;hauteur »
+#     effets                objets (matieres, nombre, delai, hauteur, son) qui jaillissent, hologramme (lignes, ticks,
+#                           hauteur), feu-artifice (forme, couleurs, fondu, hauteur), montrés à ce joueur seulement
+#     commandes             lancées par la console
+#   collectibles.<numéro>   lieu (monde x y z), etapes (x y z, l'entrée de la zone en dernier), trouve (remplace celui de
+#                           la collection)
+#   Textes et commandes : {joueur} {trouves} {total} {restants}, et les placeholders PlaceholderAPI.
+#
+# Un reload valide tous les fichiers avant de les appliquer : si l'un est invalide, rien ne change et le message le
+# nomme. Demandent un redémarrage : serveur, base-de-donnees, alias-placeholders.
 #
 # ======================================================================== #
 
-# Commande lancée par le joueur à l'activation quand il n'est pas dans un monde où il reste des collectibles
-# (vide = aucune).
-commande-autre-monde: "spawn"
+# Nom de ce serveur dans la base : plusieurs serveurs peuvent la partager.
+serveur: serveur
 
-# Distances en blocs.
-distances:
-  # La flèche disparaît à moins de « proche » blocs et revient au-delà de « loin ».
-  proche: 15
-  loin: 20
-  # La cible change pour un collectible plus proche seulement s'il l'est d'au moins « changement » blocs.
-  changement: 20
+base-de-donnees:
+  hote: 127.0.0.1
+  port: 3306
+  base: minecraft
+  utilisateur: utilisateur
+  mot-de-passe: "CHANGE_ME"
 
-# Petit bruit du collectible cherché, joué à sa place. « volume » 2 s'entend jusqu'à 32 blocs (16 blocs par unité).
-# Chaque collection peut avoir son propre volume et sa propre hauteur.
-bruit:
-  intervalle-ticks: 40
-  volume: 2.0
-  hauteur: 1.0
+# Permission exigée pour trouver les têtes d'une collection et se servir de son détecteur ("" = tout le monde).
+permission: "shcollectibles.collection.{collection}"
 
-# Collections qui ont un détecteur : nom exact de la recherche TheSearch (plugins/TheSearch/searches/<nom>.yml).
-#   couleur   couleur des textes de la collection
-#   nom       nom de la collection dans les messages
-#   objet     nom d'un collectible (au-dessus de la flèche)
-#   bruit     son du collectible, et « volume » / « hauteur » s'ils diffèrent de ceux de « bruit » plus haut
-collections:
-  Exemple:
-    couleur: "&#FF9A2B"
-    nom: "Cookies"
-    objet: "Cookie"
-    bruit: "minecraft:entity.generic.eat"
+# Modes de jeu dans lesquels rien ne se trouve.
+modes-refuses:
+  - SPECTATOR
+  - ADVENTURE
+
+# Autre nom accepté pour les placeholders (%autre_total_found_objects_<c>%…). Vide = aucun.
+alias-placeholders: ""
+
+# Particules des têtes pas encore trouvées : distance de vue en blocs, ticks entre deux points.
+particules:
+  distance: 20
+  intervalle-ticks: 5
+
+detecteur:
+  # Commande lancée par le joueur à l'activation quand il n'est pas dans un monde où il reste des collectibles
+  # (vide = aucune).
+  commande-autre-monde: "spawn"
+
+  # Distances en blocs.
+  distances:
+    # La flèche disparaît à moins de « proche » blocs du collectible et revient au-delà de « loin ».
+    proche: 15
+    loin: 20
+    # La cible change pour un collectible plus proche seulement s'il l'est d'au moins « changement » blocs.
+    changement: 20
+    # Une étape est passée à « etape » blocs.
+    etape: 4
+
+  # Bruit du collectible cherché, joué à sa place une fois l'entrée passée : « clé;volume;hauteur ». Le volume 2 s'entend
+  # jusqu'à 32 blocs (16 blocs par unité).
+  bruit:
+    son: "minecraft:block.note_block.hat;2;1.4"
+    intervalle-ticks: 20

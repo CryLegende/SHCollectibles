@@ -1,9 +1,11 @@
-package org.Cry_Legende.sHDetecteur;
+package org.Cry_Legende.sHCollectibles;
 
+import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 
 /**
  * Textes de messages.yml. Le fichier du jar sert de valeurs par défaut : une clé absente du fichier du serveur garde le
@@ -29,7 +31,10 @@ final class Textes {
     }
 
     String text(String key, String... replacements) {
-        String text = file.getString(key);
+        return replace(file.getString(key), replacements);
+    }
+
+    static String replace(String text, String... replacements) {
         if (text == null) {
             return "";
         }
@@ -37,6 +42,11 @@ final class Textes {
             text = text.replace("{" + replacements[i] + "}", replacements[i + 1]);
         }
         return text;
+    }
+
+    /** Texte d'une collection pour un joueur : placeholders lus, couleurs & ou § acceptées. */
+    static Component forPlayer(Player p, String text, String... replacements) {
+        return component(PlaceholderAPI.setPlaceholders(p, replace(text, replacements)).replace('§', '&'));
     }
 
     static Component component(String text) {

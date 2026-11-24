@@ -1,34 +1,78 @@
-name: SHDetecteur
+name: SHCollectibles
 version: '${project.version}'
-main: org.Cry_Legende.sHDetecteur.SHDetecteur
+main: org.Cry_Legende.sHCollectibles.SHCollectibles
 api-version: '1.20'
 author: Cry_Legende
-description: Détecteur de collectibles TheSearch, une flèche vers le prochain puis un petit bruit quand il est proche.
+description: Collections de têtes à trouver, récompenses, et détecteur qui guide vers la prochaine.
 depend:
-  - TheSearch
   - PlaceholderAPI
+# Chargés par Paper dans le classloader du plugin : HikariCP doit voir le driver MariaDB,
+# que le serveur ne fournit pas (il n'embarque que MySQL et SQLite).
+libraries:
+  - com.zaxxer:HikariCP:5.1.0
+  - org.mariadb.jdbc:mariadb-java-client:3.4.1
 
 commands:
   detecteur:
     description: Active ou arrête le détecteur d'une collection.
     usage: /<command> [collection]
-  shdetecteur:
-    description: Administration du détecteur (reload, info).
-    usage: /<command> <reload|info>
+  shcollectibles:
+    description: Administration des collections.
+    usage: /<command> <reload|list|info|add|remove|step|tp|give|reset|enable|disable|import> ...
 
 permissions:
-  shdetecteur.use:
+  shcollectibles.detecteur:
     description: Se servir du détecteur (/detecteur).
     default: op
-  shdetecteur.admin:
-    description: Toutes les sous-commandes de /shdetecteur.
+  shcollectibles.admin:
+    description: Toutes les sous-commandes de /shcollectibles.
     default: op
     children:
-      shdetecteur.admin.reload: true
-      shdetecteur.admin.info: true
-  shdetecteur.admin.reload:
-    description: Recharger config.yml et messages.yml.
+      shcollectibles.admin.reload: true
+      shcollectibles.admin.list: true
+      shcollectibles.admin.info: true
+      shcollectibles.admin.add: true
+      shcollectibles.admin.remove: true
+      shcollectibles.admin.step: true
+      shcollectibles.admin.tp: true
+      shcollectibles.admin.give: true
+      shcollectibles.admin.reset: true
+      shcollectibles.admin.enable: true
+      shcollectibles.admin.disable: true
+      shcollectibles.admin.import: true
+  shcollectibles.admin.reload:
+    description: Recharger la configuration et les collections.
     default: op
-  shdetecteur.admin.info:
-    description: Voir le détecteur d'un joueur.
+  shcollectibles.admin.list:
+    description: Voir les collections et leurs collectibles.
+    default: op
+  shcollectibles.admin.info:
+    description: Voir les trouvailles d'un joueur.
+    default: op
+  shcollectibles.admin.add:
+    description: Ajouter la tête visée à une collection.
+    default: op
+  shcollectibles.admin.remove:
+    description: Retirer la tête visée de sa collection.
+    default: op
+  shcollectibles.admin.step:
+    description: Poser ou effacer les étapes du détecteur vers un collectible.
+    default: op
+  shcollectibles.admin.tp:
+    description: Se téléporter à un collectible.
+    default: op
+  shcollectibles.admin.give:
+    description: Donner un collectible à un joueur (avec sa récompense).
+    default: op
+  shcollectibles.admin.reset:
+    description: Effacer les trouvailles d'un joueur.
+    default: op
+  shcollectibles.admin.enable:
+    description: Ouvrir une collection.
+    default: op
+  shcollectibles.admin.disable:
+    description: Fermer une collection.
+    default: op
+  shcollectibles.admin.import:
+    description: Reprendre les trouvailles d'un dossier de joueurs TheSearch.
     default: op

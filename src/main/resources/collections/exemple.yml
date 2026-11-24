@@ -1,0 +1,46 @@
+# Les clés sont décrites dans config.yml.
+
+nom: "Cookies"
+objet: "Cookie"
+couleur: "&#FF9A2B"
+actif: true
+detecteur: true
+
+particules:
+  couleur: "#FF9A2B"
+  hauteur: 0.7
+
+trouve:
+  chat:
+    - ""
+    - "&7&l« &d&lSH &8&l» &fVous avez trouvé un collectible &#FF9A2BCookie &7(&a{trouves}&8/&#FF9A2B{total}&7)"
+    - ""
+  son: "minecraft:entity.firework_rocket.launch;1;1.8"
+  effets:
+    objets:
+      matieres:
+        - COOKIE
+      nombre: 20
+      hauteur: 0.5
+      son: "minecraft:block.lava.pop;1;2"
+    hologramme:
+      hauteur: 1.2
+      ticks: 70
+      lignes:
+        - "&fCollectible &#FF9A2BCookie"
+        - "&7(&a{trouves}&8/&#FF9A2B{total}&7)"
+  commandes:
+    - "minecraft:give {joueur} minecraft:cookie 1"
+
+complet:
+  chat:
+    - ""
+    - "&7&l« &d&lSH &8&l» &fVous avez trouvé tous les &#FF9A2BCookies &f!"
+    - ""
+  son: "minecraft:entity.player.levelup;1;0.5"
+  commandes:
+    - "minecraft:give {joueur} minecraft:golden_apple 1"
+
+collectibles:
+  1:
+    lieu: "world 0 64 0"
