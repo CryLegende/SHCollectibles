@@ -84,6 +84,7 @@ public final class SHCollectibles extends JavaPlugin {
         cartes = new Cartes(this);
         detecteur = new Detecteur(this);
         particules = new Particules(this);
+        particules.index(settings);
         for (var listener : List.of(joueurs, effets, recherche, detecteur)) {
             getServer().getPluginManager().registerEvents(listener, this);
         }
@@ -105,6 +106,7 @@ public final class SHCollectibles extends JavaPlugin {
         Bukkit.getScheduler().runTaskTimer(this, joueurs::cleanEarly, 1200L, 1200L);
         Bukkit.getScheduler().runTaskLater(this, () -> cartes.refresh(false), 20L * settings.guidage().startDelaySeconds());
         startPeriodic();
+        cartes.everyTick(particules::tick);
     }
 
     @Override
@@ -128,8 +130,8 @@ public final class SHCollectibles extends JavaPlugin {
     private void startPeriodic() {
         periodic.forEach(BukkitTask::cancel);
         periodic.clear();
-        periodic.add(Bukkit.getScheduler().runTaskTimer(this, particules::tick, 20L, settings.particleTicks()));
-        periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::tick, 5L, settings.guidage().walk().updateTicks()));
+        periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::tick, 5L, 1L));
+        periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::checkHeads, 1L, 20L * settings.headCheckSeconds()));
         periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::trail, 7L, settings.guidage().trail().intervalTicks()));
     }
 
@@ -153,6 +155,7 @@ public final class SHCollectibles extends JavaPlugin {
         settings = s;
         messages = m;
         recherche.index(s);
+        particules.index(s);
         detecteur.onReload();
         cartes.refresh(false);
         startPeriodic();

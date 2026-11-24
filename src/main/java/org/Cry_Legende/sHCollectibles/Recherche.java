@@ -11,10 +11,10 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Clic droit sur un collectible, et protection des têtes. */
 final class Recherche implements Listener {
@@ -26,8 +26,8 @@ final class Recherche implements Listener {
     private final SHCollectibles plugin;
     private final Effets effets;
     /** Collectibles par monde, puis par case. */
-    private Map<String, Map<Long, Found>> places = Map.of();
-    private final Set<String> writing = new HashSet<>();
+    private volatile Map<String, Map<Long, Found>> places = Map.of();
+    private final Set<String> writing = ConcurrentHashMap.newKeySet();
 
     Recherche(SHCollectibles plugin, Effets effets) {
         this.plugin = plugin;
@@ -50,11 +50,6 @@ final class Recherche implements Listener {
     Found at(Block b) {
         Map<Long, Found> world = places.get(b.getWorld().getName());
         return world == null ? null : world.get(b.getBlockKey());
-    }
-
-    /** Collectibles du monde (vide s'il n'y en a pas). */
-    Iterable<Found> in(String world) {
-        return places.getOrDefault(world, Map.of()).values();
     }
 
     /** Un événement annulé compte aussi : les têtes sont dans des régions où l'interaction est refusée. */

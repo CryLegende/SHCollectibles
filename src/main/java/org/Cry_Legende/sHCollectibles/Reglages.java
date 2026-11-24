@@ -12,7 +12,7 @@ import java.util.Set;
 /** config.yml, zones.yml et collections/, lus une fois par chargement ; tout est immuable ensuite. */
 record Reglages(String server, Db db, Set<GameMode> refusedModes, String alias, double particleDistance, int particleTicks, int orbitSteps,
                 double particleSize, String otherWorldCommand, Limite limit, double near, double far, double margin, double teleport, Choix.Rules rules,
-                Actions.Son noise, int noiseTicks, double noiseReach, int adminReach, Guidage guidage, Zones zones,
+                Actions.Son noise, int noiseTicks, double noiseReach, int adminReach, int headCheckSeconds, Guidage guidage, Zones zones,
                 Map<String, Collection> collections) {
 
     record Db(String host, int port, String database, String user, String password, int connections) {
@@ -72,7 +72,7 @@ record Reglages(String server, Db db, Set<GameMode> refusedModes, String alias, 
                         positive(s, "zone-hauteur", 8), positive(s, "zone-part", 0.8), positive(s, "ressorti", 16), positive(s, "retour", 10),
                         s.getInt("abri-lumiere", 4)),
                 Actions.Son.read(n.getString("son"), "detecteur.bruit.son"), Math.max(1, n.getInt("intervalle-ticks", 80)),
-                positive(n, "portee", 10), Math.max(1, c.getInt("admin-portee", 6)), Guidage.read(c.getConfigurationSection("guidage")), zones,
+                positive(n, "portee", 10), Math.max(1, c.getInt("admin-portee", 6)), Math.max(1, d.getInt("verification-secondes", 10)), Guidage.read(c.getConfigurationSection("guidage")), zones,
                 Collections.unmodifiableMap(collections));
     }
 

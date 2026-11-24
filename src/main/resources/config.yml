@@ -128,6 +128,9 @@ detecteur:
   # (vide = aucune).
   commande-autre-monde: "spawn"
 
+  # Têtes regardées toutes les « verification-secondes » : le détecteur n'emmène pas vers une tête pas posée.
+  verification-secondes: 10
+
   # Collections différentes qu'un joueur peut suivre par jour (0 = sans limite) ; celle du jour se reprend librement. Le
   # jour change à « heure » (0 à 23, heure du serveur).
   limite:

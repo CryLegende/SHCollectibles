@@ -14,7 +14,9 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +24,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Détecteurs actifs. Le chemin à pied de chaque joueur est calculé hors du fil principal à partir de sa position ; le fil
@@ -33,8 +36,8 @@ final class Detecteur implements Listener {
     /** Un collectible qu'aucun chemin n'atteint passe après tous les autres. */
     private static final double UNREACHED = 10_000;
 
-    /** Position d'un joueur à un instant, et ce qu'il peut encore chercher dans ce monde. */
-    private record Request(Active active, Collection collection, String world, double x, double y, double z, List<Collection.Item> items) {
+    /** Position d'un joueur à un instant. */
+    private record Request(Active active, Collection collection, Donnees data, String world, double x, double y, double z) {
     }
 
     /** Chemin trouvé ; « reached » faux : il mène au plus près. */
@@ -48,6 +51,9 @@ final class Detecteur implements Listener {
         volatile String text = "";
         volatile int target = -1;
         private volatile Result result;
+        private Result drawn;
+        private long drawnDistance;
+        final int slot;
         int step;
         int steps;
         double distance;
@@ -59,14 +65,18 @@ final class Detecteur implements Listener {
         /** Jour où la collection a été comptée. */
         LocalDate day;
 
-        Active(Collection collection) {
+        Active(Collection collection, int slot) {
             this.collection = collection;
+            this.slot = slot;
         }
     }
 
     private final SHCollectibles plugin;
     private final Map<UUID, Active> actives = new ConcurrentHashMap<>();
     private final AtomicBoolean computing = new AtomicBoolean();
+    private final AtomicInteger slots = new AtomicInteger();
+    private volatile Set<Collection.Item> missing = Set.of();
+    private int now;
 
     Detecteur(SHCollectibles plugin) {
         this.plugin = plugin;
@@ -99,14 +109,14 @@ final class Detecteur implements Listener {
             m.send(p, "limite", "n", Integer.toString(plugin.settings().limit().perDay()),
                     "liste", names(d.tracked(plugin.today())), "heures", Long.toString(left / 60), "minutes", Long.toString(left % 60));
         } else {
-            Active now = new Active(c);
+            Active now = new Active(c, slots.incrementAndGet());
             actives.put(p.getUniqueId(), now);
             count(p, now, d, plugin.today());
             m.send(p, limited(p) ? "detecteur-active-limite" : "detecteur-active", "nom", c.coloredName(),
                     "n", Integer.toString(plugin.settings().limit().perDay()));
             Effets.sound(p, plugin.settings().noise(), p.getLocation());
             p.closeInventory();
-            if (left(p.getLocation(), c, d).isEmpty() && !plugin.settings().otherWorldCommand().isEmpty()) {
+            if (left(p.getWorld().getName(), c, d).isEmpty() && !plugin.settings().otherWorldCommand().isEmpty()) {
                 p.performCommand(plugin.settings().otherWorldCommand());
             }
         }
@@ -166,6 +176,7 @@ final class Detecteur implements Listener {
 
     private static void clear(Active a) {
         a.result = null;
+        a.drawn = null;
         a.target = -1;
         a.near = false;
         a.onPath = false;
@@ -191,19 +202,23 @@ final class Detecteur implements Listener {
         actives.remove(e.getPlayer().getUniqueId());
     }
 
-    /** Toutes les « guidage.suivi.intervalle-ticks ». */
+    /** À chaque tick : les détecteurs dont c'est le tour (chacun toutes les « guidage.suivi.intervalle-ticks »). */
     void tick() {
         if (actives.isEmpty()) {
             return;
         }
+        now++;
         List<Request> requests = new ArrayList<>();
         LocalDate today = plugin.today();
         int period = plugin.settings().guidage().walk().updateTicks();
         Iterator<Map.Entry<UUID, Active>> it = actives.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<UUID, Active> en = it.next();
-            Player p = Bukkit.getPlayer(en.getKey());
             Active a = en.getValue();
+            if ((a.slot + now) % period != 0) {
+                continue;
+            }
+            Player p = Bukkit.getPlayer(en.getKey());
             Donnees d = plugin.joueurs().get(en.getKey());
             if (p == null || !a.collection.enabled() || d != null && d.completed().contains(a.collection.id())) {
                 it.remove();
@@ -216,14 +231,11 @@ final class Detecteur implements Listener {
                 count(p, a, d, today);
             }
             Location l = p.getLocation();
-            List<Collection.Item> items = left(l, a.collection, d);
-            apply(p, l, a, items);
+            apply(p, l, a, d);
             noise(p, a, period);
-            if (!items.isEmpty()) {
-                requests.add(new Request(a, a.collection, l.getWorld().getName(), l.getX(), l.getY(), l.getZ(), items));
-            }
+            requests.add(new Request(a, a.collection, d, l.getWorld().getName(), l.getX(), l.getY(), l.getZ()));
         }
-        if (!requests.isEmpty() && plugin.cartes().all().size() > 0 && computing.compareAndSet(false, true)) {
+        if (!requests.isEmpty() && !plugin.cartes().all().isEmpty() && computing.compareAndSet(false, true)) {
             plugin.cartes().runLive(() -> {
                 try {
                     for (Request r : requests) {
@@ -249,7 +261,7 @@ final class Detecteur implements Listener {
             return null;
         }
         List<Choix.Candidate> list = new ArrayList<>();
-        for (Collection.Item i : q.items()) {
+        for (Collection.Item i : left(q.world(), q.collection(), q.data())) {
             Cartes.Route route = plugin.cartes().route(w, q.collection(), i);
             if (route != null && route.field().reaches(node)) {
                 list.add(new Choix.Candidate(i, route.field().cost(node) + (route.reached() ? 0 : UNREACHED)));
@@ -280,7 +292,7 @@ final class Detecteur implements Listener {
         return new Result(best.item(), q.world(), route.reached(), path, shortcut);
     }
 
-    private void apply(Player p, Location l, Active a, List<Collection.Item> items) {
+    private void apply(Player p, Location l, Active a, Donnees d) {
         Reglages cfg = plugin.settings();
         if (a.last != null && (a.last.getWorld() != l.getWorld() || a.last.distanceSquared(l) > cfg.teleport() * cfg.teleport())) {
             a.step = 0;
@@ -288,8 +300,8 @@ final class Detecteur implements Listener {
         }
         a.last = l;
         Result r = a.result;
-        if (r == null || !r.world().equals(l.getWorld().getName()) || !items.contains(r.item())) {
-            bySteps(p, l, a, items);
+        if (r == null || !r.world().equals(l.getWorld().getName()) || d.read(a.collection.id()).contains(r.item().id())) {
+            bySteps(p, l, a, left(l.getWorld().getName(), a.collection, d));
         } else if (r.reached() || r.item().steps().isEmpty()) {
             byPath(p, l, a, r);
         } else {
@@ -310,7 +322,12 @@ final class Detecteur implements Listener {
             arrive(p, a, r.item());
             return;
         }
+        // Rien à refaire tant que le chemin n'a pas changé
+        if (a.drawn == r && !a.place.isEmpty()) {
+            return;
+        }
         Lieu point = !r.reached() && r.path().length() < cfg.near() ? r.item().center() : r.path().point();
+        a.drawn = r;
         show(a, point.text(), a.distance, r.shortcut());
     }
 
@@ -358,6 +375,12 @@ final class Detecteur implements Listener {
 
     private void show(Active a, String place, double distance, String shortcut) {
         Textes m = plugin.messages();
+        long shown = Math.round(distance) * 31 + shortcut.hashCode();
+        if (shown == a.drawnDistance && !a.text.isEmpty()) {
+            a.place = place;
+            return;
+        }
+        a.drawnDistance = shown;
         a.text = m.text("fleche.texte", "objet", a.collection.coloredObject(), "distance", Long.toString(Math.round(distance)))
                 + (shortcut.isEmpty() ? "" : m.text("fleche.raccourci", "commande", shortcut));
         a.place = place;
@@ -380,10 +403,13 @@ final class Detecteur implements Listener {
 
     /** Trace au sol, toutes les « guidage.trace.intervalle-ticks ». */
     void trail() {
-        Guidage.Trail t = plugin.settings().guidage().trail();
-        if (!t.enabled()) {
-            return;
+        if (plugin.settings().guidage().trail().enabled() && !actives.isEmpty()) {
+            plugin.cartes().runLive(this::drawTrail);
         }
+    }
+
+    private void drawTrail() {
+        Guidage.Trail t = plugin.settings().guidage().trail();
         for (Map.Entry<UUID, Active> en : actives.entrySet()) {
             Active a = en.getValue();
             Result r = a.result;
@@ -398,23 +424,36 @@ final class Detecteur implements Listener {
         }
     }
 
-    /** Collectibles pas encore trouvés dans le monde du joueur, têtes posées seulement. */
-    private static List<Collection.Item> left(Location l, Collection c, Donnees d) {
-        World w = l.getWorld();
+    /** Collectibles pas encore trouvés dans un monde, têtes posées seulement. */
+    private List<Collection.Item> left(String world, Collection c, Donnees d) {
+        Set<Integer> found = d.read(c.id());
+        Set<Collection.Item> absent = missing;
         List<Collection.Item> out = new ArrayList<>();
         for (Collection.Item item : c.items().values()) {
-            Lieu at = item.place();
-            if (at.world().equals(w.getName()) && !d.read(c.id()).contains(item.id()) && !missing(w, at)) {
+            if (item.place().world().equals(world) && !found.contains(item.id()) && !absent.contains(item)) {
                 out.add(item);
             }
         }
         return out;
     }
 
-    /** Tête pas posée (case vide) : le détecteur n'y emmène personne. */
-    private static boolean missing(World w, Lieu at) {
-        int x = (int) Math.floor(at.x());
-        int z = (int) Math.floor(at.z());
-        return w.isChunkLoaded(x >> 4, z >> 4) && w.getBlockAt(x, (int) Math.floor(at.y()), z).isEmpty();
+    /** Têtes pas posées (case vide) : le détecteur n'y emmène personne. Toutes les « detecteur.verification-secondes ». */
+    void checkHeads() {
+        Set<Collection.Item> out = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Collection c : plugin.settings().collections().values()) {
+            if (!c.enabled() || !c.detector()) {
+                continue;
+            }
+            for (Collection.Item item : c.items().values()) {
+                Lieu at = item.place();
+                World w = Bukkit.getWorld(at.world());
+                int x = (int) Math.floor(at.x());
+                int z = (int) Math.floor(at.z());
+                if (w != null && (w.isChunkLoaded(x >> 4, z >> 4) ? w.getBlockAt(x, (int) Math.floor(at.y()), z).isEmpty() : missing.contains(item))) {
+                    out.add(item);
+                }
+            }
+        }
+        missing = out;
     }
 }

@@ -25,9 +25,9 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.time.Duration;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 /** Joue les actions d'une trouvaille. Les effets ne sont montrés qu'au joueur et ne sont jamais sauvegardés. */
@@ -37,7 +37,7 @@ final class Effets implements Listener {
     private static final int FIRST = 2;
 
     private final SHCollectibles plugin;
-    private final Set<Entity> shown = new HashSet<>();
+    private final Set<Entity> shown = ConcurrentHashMap.newKeySet();
 
     Effets(SHCollectibles plugin) {
         this.plugin = plugin;

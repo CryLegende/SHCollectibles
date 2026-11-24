@@ -18,6 +18,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
@@ -62,7 +64,7 @@ final class Cartes {
         return t;
     });
     /** Chemins des joueurs, à part : un calcul long de carte ne les retarde pas. */
-    private final ExecutorService live = Executors.newSingleThreadExecutor(r -> {
+    private final ScheduledExecutorService live = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "SHCollectibles-Chemins");
         t.setDaemon(true);
         return t;
@@ -90,6 +92,17 @@ final class Cartes {
     /** Chemin d'un joueur. */
     void runLive(Runnable r) {
         run(live, r);
+    }
+
+    /** Passage toutes les 50 ms, à côté des chemins des joueurs. */
+    void everyTick(Runnable r) {
+        live.scheduleWithFixedDelay(() -> {
+            try {
+                r.run();
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(Level.WARNING, "Passage impossible", e);
+            }
+        }, 1000, 50, TimeUnit.MILLISECONDS);
     }
 
     private void run(ExecutorService on, Runnable r) {
