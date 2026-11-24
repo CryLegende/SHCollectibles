@@ -121,6 +121,12 @@ final class Cartes {
         tasks.forEach(BukkitTask::cancel);
         worker.shutdownNow();
         live.shutdownNow();
+        // Cartes lourdes : rendues même si le serveur garde l'ancien plugin en mémoire
+        worlds.values().forEach(m -> {
+            m.network = null;
+            m.routes.clear();
+        });
+        worlds.clear();
     }
 
     /** Refait les cartes dont quelque chose a changé ; « force » : toutes. */

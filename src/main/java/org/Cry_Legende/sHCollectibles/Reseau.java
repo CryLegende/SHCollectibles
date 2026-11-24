@@ -41,11 +41,12 @@ final class Reseau {
     private final int[] start;
     private final int[] to;
     private final float[] costs;
+    private final byte[] kinds;
     private final int[] backStart;
     private final int[] backFrom;
     private final int[] backEdge;
 
-    private Reseau(Carte map, int[] cells, int[] keys, int[] values, int[] start, int[] to, float[] costs) {
+    private Reseau(Carte map, int[] cells, int[] keys, int[] values, int[] start, int[] to, float[] costs, byte[] kinds) {
         this.map = map;
         this.cells = cells;
         this.keys = keys;
@@ -53,6 +54,7 @@ final class Reseau {
         this.start = start;
         this.to = to;
         this.costs = costs;
+        this.kinds = kinds;
         int n = cells.length;
         backStart = new int[n + 1];
         for (int t : to) {
@@ -94,7 +96,7 @@ final class Reseau {
             b.expand(i);
         }
         return new Reseau(map, Arrays.copyOf(b.cells, b.count), b.keys, b.values, Arrays.copyOf(b.start, b.count + 1),
-                Arrays.copyOf(b.to, b.edges), Arrays.copyOf(b.costs, b.edges));
+                Arrays.copyOf(b.to, b.edges), Arrays.copyOf(b.costs, b.edges), Arrays.copyOf(b.kinds, b.edges));
     }
 
     private static final class Builder implements Carte.Moves {
@@ -109,6 +111,7 @@ final class Reseau {
         private int[] start = new int[(1 << 14) + 1];
         private int[] to = new int[1 << 17];
         private float[] costs = new float[1 << 17];
+        private byte[] kinds = new byte[1 << 17];
         private int count;
         private int edges;
         private int first;
@@ -159,7 +162,7 @@ final class Reseau {
                 if (l.from().world().equals(world) && l.to().world().equals(world) && l.from().distance(x + 0.5, y, z + 0.5) <= 1.6) {
                     int cell = nearest(map, (int) Math.floor(l.to().x()), (int) Math.floor(l.to().y()), (int) Math.floor(l.to().z()), 4, 2);
                     if (cell >= 0) {
-                        add(cell, l.cost());
+                        add(cell, l.cost(), Carte.LINK);
                     }
                 }
             }
@@ -167,11 +170,11 @@ final class Reseau {
         }
 
         @Override
-        public void add(int x, int y, int z, double cost) {
-            add(map.cell(x, y, z), cost);
+        public void add(int x, int y, int z, double cost, byte kind) {
+            add(map.cell(x, y, z), cost + map.ground(x, y, z), kind);
         }
 
-        private void add(int cell, double cost) {
+        private void add(int cell, double cost, byte kind) {
             if (edges - first >= MAX_MOVES) {
                 return;
             }
@@ -179,7 +182,9 @@ final class Reseau {
             if (edges == to.length) {
                 to = Arrays.copyOf(to, edges * 2);
                 costs = Arrays.copyOf(costs, edges * 2);
+                kinds = Arrays.copyOf(kinds, edges * 2);
             }
+            kinds[edges] = kind;
             to[edges] = target;
             costs[edges++] = (float) cost;
         }
@@ -266,6 +271,37 @@ final class Reseau {
     int next(Champ c, int node) {
         int e = c.next[node] & 0xFF;
         return e == Champ.ARRIVED ? -1 : to[start[node] + e];
+    }
+
+    /** Sorte du déplacement vers la case suivante (Carte.WALK…). */
+    byte kind(Champ c, int node) {
+        int e = c.next[node] & 0xFF;
+        return e == Champ.ARRIVED ? Carte.WALK : kinds[start[node] + e];
+    }
+
+    /** Case du réseau la plus proche d'un point, à « radius » blocs au plus ; -1 si aucune. */
+    int near(double px, double py, double pz, int radius) {
+        int x = (int) Math.floor(px);
+        int y = (int) Math.floor(py);
+        int z = (int) Math.floor(pz);
+        int best = -1;
+        double bestDistance = Double.MAX_VALUE;
+        for (int dy = -radius; dy <= radius; dy++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    double d = dx * dx + dz * dz + 2.25 * dy * dy;
+                    if (d >= bestDistance || !map.inside(x + dx, y + dy, z + dz)) {
+                        continue;
+                    }
+                    int node = index(map.cell(x + dx, y + dy, z + dz));
+                    if (node >= 0) {
+                        bestDistance = d;
+                        best = node;
+                    }
+                }
+            }
+        }
+        return best;
     }
 
     /** Cases d'où l'on peut cliquer une tête : à portée, et vue des yeux. */

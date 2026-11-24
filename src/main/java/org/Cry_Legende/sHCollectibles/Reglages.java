@@ -11,7 +11,7 @@ import java.util.Set;
 
 /** config.yml, zones.yml et collections/, lus une fois par chargement ; tout est immuable ensuite. */
 record Reglages(String server, Db db, Set<GameMode> refusedModes, String alias, double particleDistance, int particleTicks, int orbitSteps,
-                double particleSize, String otherWorldCommand, Limite limit, double near, double far, double margin, double teleport, Choix.Rules rules,
+                double particleSize, String otherWorldCommand, Limite limit, double near, double far, double margin, double teleport, Fouille search, Choix.Rules rules,
                 Actions.Son noise, int noiseTicks, double noiseReach, int adminReach, int headCheckSeconds, Guidage guidage, Zones zones,
                 Map<String, Collection> collections) {
 
@@ -67,7 +67,7 @@ record Reglages(String server, Db db, Set<GameMode> refusedModes, String alias, 
                 Math.max(1, p.getInt("orbite-pas", 10)), Math.max(0.1, positive(p, "taille", 1)),
                 d.getString("commande-autre-monde", "").trim(), new Limite(Math.max(0, lim.getInt("par-jour", 1)), hour),
                 positive(dist, "proche", 22), positive(dist, "loin", 28),
-                positive(dist, "changement", 20), positive(dist, "teleportation", 30),
+                positive(dist, "changement", 20), positive(dist, "teleportation", 30), Fouille.read(d.getConfigurationSection("fouille")),
                 new Choix.Rules(positive(s, "rayon", 4), positive(s, "hauteur", 4), positive(s, "depasse-hauteur", 3), positive(s, "depasse-part", 0.6),
                         positive(s, "zone-hauteur", 8), positive(s, "zone-part", 0.8), positive(s, "ressorti", 16), positive(s, "retour", 10),
                         s.getInt("abri-lumiere", 4)),

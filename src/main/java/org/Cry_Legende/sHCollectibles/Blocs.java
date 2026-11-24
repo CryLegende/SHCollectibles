@@ -34,6 +34,8 @@ final class Blocs {
     static final byte TRAPPE = 8;
     /** Seulement le haut de la case (dalle haute) : plancher au-dessus, et passage pour qui marche sur une dalle basse. */
     static final byte TOIT = 9;
+    /** Feuilles : on y marche comme sur un bloc plein, mais un chemin par les arbres coûte plus. */
+    static final byte FEUILLE = 10;
 
     /** Largeur d'un joueur (0,6) centrée dans la case. */
     private static final double EDGE = 0.2;
@@ -55,6 +57,9 @@ final class Blocs {
         }
         if (Tag.CLIMBABLE.isTagged(m)) {
             return GRIMPE;
+        }
+        if (Tag.LEAVES.isTagged(m)) {
+            return FEUILLE;
         }
         if (d instanceof TrapDoor t) {
             return t.isOpen() ? VIDE : t.getHalf() == Bisected.Half.BOTTOM ? BAS : TRAPPE;

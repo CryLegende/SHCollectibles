@@ -107,11 +107,15 @@ public final class SHCollectibles extends JavaPlugin {
         Bukkit.getScheduler().runTaskLater(this, () -> cartes.refresh(false), 20L * settings.guidage().startDelaySeconds());
         startPeriodic();
         cartes.everyTick(particules::tick);
+        cartes.everyTick(detecteur::landings);
     }
 
     @Override
     public void onDisable() {
         expansions.forEach(Expansion::unregister);
+        if (detecteur != null) {
+            detecteur.close();
+        }
         if (cartes != null) {
             cartes.close();
         }
@@ -132,7 +136,7 @@ public final class SHCollectibles extends JavaPlugin {
         periodic.clear();
         periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::tick, 5L, 1L));
         periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::checkHeads, 1L, 20L * settings.headCheckSeconds()));
-        periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::trail, 7L, settings.guidage().trail().intervalTicks()));
+        periodic.add(Bukkit.getScheduler().runTaskTimer(this, detecteur::trail, 7L, 1L));
     }
 
     /** Recharge tout ; un fichier invalide ne change rien et le message le nomme. Base et serveur : au redémarrage. */

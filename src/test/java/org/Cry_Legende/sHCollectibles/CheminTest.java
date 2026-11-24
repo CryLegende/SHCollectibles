@@ -81,8 +81,8 @@ class CheminTest {
         Reseau.Champ c = to(r, 20, 1, 2);
         Trajet t = path(m, r, c, 2.5, 1, 2.5);
         assertEquals(18, t.length(), 0.1);
-        assertEquals(new Lieu("w", 20.5, 1.5, 2.5), t.point(), "tout droit : la flèche montre l'arrivée");
-        assertFalse(t.trail().isEmpty());
+        assertEquals(new Lieu("w", 20.5, 1, 2.5), t.point(), "tout droit : la flèche montre l'arrivée");
+        assertEquals("w 2.5 1.0 2.5 20.5 1.0 2.5", t.route());
     }
 
     @Test
@@ -138,10 +138,10 @@ class CheminTest {
     void doubleSautSeulementSIlLeFaut() {
         Monde m = new Monde().box(10, 1, 0, N - 1, 3, N - 1, Blocs.PLEIN);
         Reseau r = m.build(2, 1, 2);
-        assertTrue(cost(r, to(r, 20, 4, 2), 2.5, 1, 2.5) > 120, "coûteux mais possible");
+        assertTrue(cost(r, to(r, 20, 4, 2), 2.5, 1, 2.5) > 55, "coûteux mais possible");
         m.box(9, 1, 20, 9, 1, 20, Blocs.PLEIN).box(9, 2, 20, 9, 2, 20, Blocs.VIDE).box(10, 2, 20, 10, 3, 20, Blocs.VIDE).box(11, 3, 20, 11, 3, 20, Blocs.VIDE);
         Reseau s = m.build(2, 1, 2);
-        assertTrue(cost(s, to(s, 20, 4, 2), 2.5, 1, 2.5) < 120, "un escalier existe : il est préféré");
+        assertTrue(cost(s, to(s, 20, 4, 18), 2.5, 1, 18.5) < 30, "un escalier existe : il est préféré");
     }
 
     @Test
@@ -154,12 +154,95 @@ class CheminTest {
     @Test
     void doubleSautLongEtEnBiais() {
         Monde m = new Monde().box(6, 0, 0, N - 1, 0, N - 1, Blocs.VIDE).box(13, 0, 8, 16, 0, 12, Blocs.PLEIN);
+        m.cfg = config("double-saut-longueur: 9");
         Reseau r = m.build(2, 1, 4);
         assertTrue(r.locate(14.5, 1, 10.5, 2, 0) >= 0, "plateforme à 8 blocs, en biais");
         m.cfg = config("double-saut-longueur: 5");
         assertEquals(-1, m.build(2, 1, 4).locate(14.5, 1, 10.5, 2, 0), "trop loin");
         Monde high = new Monde().box(6, 0, 0, N - 1, 0, N - 1, Blocs.VIDE).box(13, 4, 0, 16, 4, N - 1, Blocs.PLEIN);
+        high.cfg = config("double-saut-longueur: 9, double-saut-perte-montee: 1");
         assertEquals(-1, high.build(2, 1, 4).locate(14.5, 5, 10.5, 2, 0), "4 blocs plus haut : 5 blocs de long au plus");
+        high.cfg = config("double-saut-longueur: 12, double-saut-perte-montee: 0.75");
+        assertTrue(high.build(2, 1, 4).locate(14.5, 5, 10.5, 2, 0) >= 0, "9 blocs de long : atteint");
+    }
+
+    /** Une falaise à y 10, le vide, et un pont 8 blocs plus bas. */
+    private static Monde falaise() {
+        Monde m = new Monde().box(0, 0, 0, N - 1, 0, N - 1, Blocs.VIDE).box(0, 10, 0, 5, 10, N - 1, Blocs.PLEIN)
+                .box(13, 2, 0, 20, 2, N - 1, Blocs.PLEIN);
+        m.cfg = config("double-saut-longueur: 11");
+        return m;
+    }
+
+    @Test
+    void doubleSautVersUnPontPlusBas() {
+        Monde m = falaise();
+        Reseau r = m.build(2, 11, 12);
+        int deck = r.locate(17.5, 3, 12.5, 2, 0);
+        assertTrue(deck >= 0, "le pont est atteint");
+        Reseau.Champ c = to(r, 19, 3, 12);
+        Trajet t = path(m, r, c, 1.5, 11, 12.5);
+        assertEquals(1, t.afterLeaps().size());
+        assertTrue(t.afterLeaps().getFirst() > 3, "il reste à marcher sur le pont, " + t.afterLeaps());
+        assertTrue(t.leapLeft(3));
+        assertFalse(t.leapLeft(15), "un saut qui se pose tout près fait partie de la fouille");
+        assertNotNull(t.leap());
+        assertTrue(t.leap().from().x() > 3 && t.leap().from().y() == 11, "élan au bord, " + t.leap());
+        assertTrue(t.leap().to().x() >= 14.5, "arrivée un peu après le bord du pont, " + t.leap());
+        assertTrue(t.leap().away() > 0);
+        double highest = t.points().stream().mapToDouble(Lieu::y).max().orElseThrow();
+        assertEquals(14, highest, 1e-9, "le chemin passe par le sommet du vol");
+        assertEquals(3, t.points().getLast().y(), 1e-9);
+        List<Lieu> line = t.leap().line(0.8, 30);
+        assertTrue(line.size() > 10 && line.size() <= 30);
+        assertEquals(t.leap().to().x(), line.getLast().x(), 1e-9);
+        assertTrue(line.stream().mapToDouble(Lieu::y).max().orElseThrow() > 13, "la ligne passe par le haut");
+    }
+
+    @Test
+    void pasDeDoubleSautDansUneBoiteOuIlEstCoupe() {
+        Monde m = falaise();
+        m.cfg = config("sans-double-saut: ['w 0 0 0 23 15 23']");
+        assertEquals(-1, m.build(2, 11, 12).locate(17.5, 3, 12.5, 2, 0));
+    }
+
+    @Test
+    void unVolBarreParUnMatNEstPasPropose() {
+        Monde m = falaise().box(10, 0, 0, 10, H - 1, N - 1, Blocs.HAUT);
+        assertEquals(-1, m.build(2, 11, 12).locate(17.5, 3, 12.5, 2, 0));
+    }
+
+    @Test
+    void uneArriveeEtroiteCoutePlus() {
+        Monde wide = falaise();
+        Monde thin = falaise().box(13, 2, 0, 20, 2, N - 1, Blocs.VIDE).box(13, 2, 0, 13, 2, N - 1, Blocs.PLEIN);
+        Reseau a = wide.build(2, 11, 12);
+        Reseau b = thin.build(2, 11, 12);
+        double large = a.field(List.of(a.locate(14.5, 3, 12.5, 2, 0))).cost(a.locate(2.5, 11, 12.5, 2, 0));
+        double narrow = b.field(List.of(b.locate(13.5, 3, 12.5, 2, 0))).cost(b.locate(2.5, 11, 12.5, 2, 0));
+        assertTrue(narrow > large + 10, narrow + " contre " + large);
+    }
+
+    @Test
+    void leHautDesArbresEstEvite() {
+        Monde m = new Monde().box(6, 0, 0, 14, 0, N - 4, Blocs.FEUILLE);
+        Reseau r = m.build(2, 1, 4);
+        Trajet t = path(m, r, to(r, 20, 1, 4), 2.5, 1, 4.5);
+        assertTrue(t.length() > 35, "contourne les feuilles, " + t.length());
+        m.cfg = config("feuillage: 0");
+        Reseau s = m.build(2, 1, 4);
+        assertEquals(18, path(m, s, to(s, 20, 1, 4), 2.5, 1, 4.5).length(), 0.1);
+    }
+
+    @Test
+    void unJoueurHorsDuReseauRetrouveLePlusProche() {
+        Monde m = new Monde().box(0, 8, 0, 2, 8, 2, Blocs.PLEIN);
+        m.cfg = config("double-saut: -1");
+        Reseau r = m.build(12, 1, 12);
+        assertEquals(-1, r.locate(1.5, 9, 1.5, 4, 1), "sur un toit inaccessible");
+        int near = r.near(1.5, 9, 1.5, 10);
+        assertTrue(near >= 0 && r.y(near) == 1, "le sol en dessous");
+        assertEquals(-1, r.near(1.5, 9, 1.5, 4));
     }
 
     @Test

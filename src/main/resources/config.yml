@@ -7,9 +7,10 @@
 # son identifiant, gardé avec les trouvailles : ne pas le renommer).
 #
 # Le détecteur guide un joueur vers le collectible au chemin le plus court : le plugin connaît le monde (section
-# « guidage ») et suit le vrai trajet à pied, avec ses détours, escaliers, portes et échelles. La flèche montre le
-# prochain point du chemin, disparaît aux environs du collectible, et celui-ci fait un petit bruit quand il est proche à
-# pied. Un collectible ajouté est guidé tout seul. Un joueur ne suit qu'un nombre limité de collections par jour.
+# « guidage ») et suit le vrai trajet à pied, avec ses détours, escaliers, portes, échelles et doubles sauts. La flèche suit
+# le chemin jusqu'à la zone de fouille (section « fouille ») : là, elle laisse la place à une barre qui dit si l'on chauffe,
+# et le collectible fait un petit bruit quand il est proche à pied. Un collectible ajouté est guidé tout seul. Un joueur ne
+# suit qu'un nombre limité de collections par jour.
 #
 # Fichiers : config.yml (ce fichier), messages.yml (tous les textes), zones.yml (compte des collectibles par zone),
 # collections/ (têtes, récompenses, effets). Tout se change sans toucher au code, puis /shcollectibles reload.
@@ -59,9 +60,11 @@
 #   %shcollectibles_zone_total_<z>%                    Collectibles de la zone.
 #   %shcollectibles_menu_<c>%                          Ligne de menu du détecteur : activer, arrêter, limite du jour
 #                                                      atteinte ou complète.
-#   %shcollectibles_cible%                             Point que la flèche doit montrer, « monde x y z ». Vide quand le
-#                                                      détecteur est arrêté ou le collectible tout près.
+#   %shcollectibles_cible%                             Chemin que la flèche doit suivre, « monde x y z x y z … » du
+#                                                      joueur vers l'avant. Vide quand le détecteur est arrêté ou le
+#                                                      joueur dans la zone de fouille.
 #   %shcollectibles_fleche%                            Texte au-dessus de la flèche.
+#   %shcollectibles_fin%                               Texte d'adieu de la flèche dans la zone de fouille, vide ailleurs.
 #   %shcollectibles_collection%                        Collection du détecteur actif.
 #
 # Fichier d'une collection :
@@ -139,13 +142,48 @@ detecteur:
 
   # Distances en blocs à marcher.
   distances:
-    # La flèche et la trace disparaissent à moins de « proche » blocs du collectible et reviennent au-delà de « loin ».
+    # La zone de fouille commence à moins de « proche » blocs du collectible, la flèche revient au-delà de « loin ».
     proche: 22
     loin: 28
     # La cible change pour un collectible plus proche seulement s'il l'est d'au moins « changement » blocs.
     changement: 20
     # Un déplacement plus grand d'un coup est une téléportation : le chemin est repris de zéro.
     teleportation: 30
+
+  # Zone de fouille : la flèche s'en va (texte fleche.fin), un titre le dit et une barre en haut de l'écran dit si l'on
+  # chauffe. Textes : section fouille de messages.yml.
+  fouille:
+    actif: true
+    # Même à moins de « proche » blocs, la flèche reste tant qu'un double saut mène à ce nombre de blocs du collectible au
+    # moins (un saut qui se pose plus près fait partie de la fouille). -1 = la flèche s'en va quand même.
+    apres-double-saut: 5
+    # Titre, en ticks, et son de l'entrée (vide = aucun).
+    titre:
+      apparition: 5
+      duree: 45
+      disparition: 15
+    son: "minecraft:item.spyglass.use;1;1"
+    barre:
+      actif: true
+      # PROGRESS, NOTCHED_6, NOTCHED_10, NOTCHED_12 ou NOTCHED_20
+      style: NOTCHED_6
+    # Blocs à repasser pour redescendre d'un niveau.
+    marge: 1.5
+    # Niveaux, affichés à moins de « distance » blocs à marcher (le plus loin vaut pour toute la zone) : couleur PINK, BLUE,
+    # RED, GREEN, YELLOW, PURPLE ou WHITE, et remplissage de la barre (0 à 1). Un seul niveau = la barre n'aide pas.
+    niveaux:
+      tiede:
+        distance: 1000
+        couleur: BLUE
+        remplissage: 0.33
+      chaud:
+        distance: 14
+        couleur: YELLOW
+        remplissage: 0.66
+      brulant:
+        distance: 7
+        couleur: RED
+        remplissage: 1.0
 
   # Bruit du collectible cherché, joué à sa place : « clé;volume;hauteur » (le volume 1 s'entend jusqu'à 16 blocs),
   # seulement quand il reste moins de « portee » blocs à marcher, donc jamais à travers un mur.
@@ -201,22 +239,38 @@ guidage:
   # -1 = jamais (chute, porte-fermee, double-saut).
   deplacements:
     saut: 0.5
-    # Saut par-dessus un trou : coût, et longueur la plus grande en blocs (1 à 6).
-    trou: 1.5
+    # Saut par-dessus un trou : coût, coût en plus quand le trou est profond (plus que « chute-libre », ou le vide), et
+    # longueur la plus grande en blocs (1 à 6).
+    trou: 3
+    trou-profond: 15
     trou-max: 4
     # Chute de plus de « chute-libre » blocs : coût, coût par bloc, et hauteur la plus grande.
     chute-libre: 3
-    chute: 20
+    chute: 8
     chute-par-bloc: 0.5
     chute-max: 60
+    # Coût en plus par bloc au-delà de « chute-haute-des » (chute ou double saut vers le bas).
+    chute-haute-des: 12
+    chute-haute: 1
     echelle: 1.5
     nage: 1.5
     porte-fermee: 6
-    # Double saut : coût, hauteur et longueur les plus grandes (chaque bloc gagné en hauteur raccourcit d'un bloc). -1 sur
-    # un serveur sans double saut.
-    double-saut: 120
+    # Coût en plus par bloc marché sur des feuilles : le chemin ne passe pas par le haut des arbres.
+    feuillage: 4
+    # Double saut : coût, plus un coût par bloc, et un coût en plus quand l'arrivée est étroite. -1 sur un serveur sans
+    # double saut.
+    double-saut: 40
+    double-saut-par-bloc: 2.5
+    double-saut-etroit: 20
+    # Ce que franchit un double saut : hauteur la plus grande, longueur la plus grande au même niveau, longueur perdue par
+    # bloc quand on se pose plus haut, gagnée par bloc quand on se pose plus bas (« gain-max » au plus).
     double-saut-hauteur: 4
-    double-saut-longueur: 9
+    double-saut-longueur: 11
+    double-saut-perte-montee: 0.75
+    double-saut-gain-descente: 0.16
+    double-saut-gain-max: 5
+    # Boîtes où le double saut est coupé (monde x1 y1 z1 x2 y2 z2).
+    sans-double-saut: []
 
   # Passages que le plugin ne voit pas (portail, téléporteur, trou à ramper), dans un seul sens.
   # liens:
@@ -236,16 +290,36 @@ guidage:
   raccourcis: {}
 
   suivi:
-    # Chemin d'un joueur recalculé tous les « intervalle-ticks ».
+    # Chemin d'un joueur recalculé tous les « intervalle-ticks », et dès qu'il se pose. En l'air il ne change pas, au plus
+    # « en-l-air-ticks » (un saut n'y change donc rien).
     intervalle-ticks: 5
-    # Cases du chemin regardées d'avance pour choisir le point que montre la flèche, et distance minimale de ce point.
+    en-l-air-ticks: 80
+    # Cases du chemin regardées d'avance, et nombre de points (changements de direction) donnés à la flèche.
     vue: 48
-    avance-min: 3
+    points-max: 10
     # Distance des yeux à laquelle on clique une tête.
     portee-clic: 3.6
-    # Le joueur est rattaché au chemin le plus proche : sous lui, puis autour de lui, en blocs (autour : 6 au plus).
+    # Le joueur est rattaché au chemin le plus proche : sous lui, puis autour de lui, en blocs (autour : 6 au plus), puis
+    # plus loin encore (retrouve-autour, 16 au plus). Sans rien, l'ancien chemin est gardé « perdu-ticks ».
     recherche-dessous: 12
     recherche-autour: 3
+    retrouve-autour: 10
+    perdu-ticks: 100
+
+  # Double saut sur le chemin : annoncé au-dessus de la flèche à moins de « annonce » blocs de l'élan, avec une ligne de
+  # points de l'élan à l'arrivée et un cercle où se poser, montrés à ce joueur seulement.
+  double-saut:
+    annonce: 8
+    trace:
+      actif: true
+      intervalle-ticks: 5
+      # Écart entre les points, nombre le plus grand, taille, et rayon du cercle (0 = sans).
+      ecart: 0.8
+      points-max: 30
+      taille: 1.0
+      cercle: 0.9
+      # Couleur (#RRGGBB) ; vide = celle de la collection.
+      couleur: "#FFD83D"
 
   # Trace au sol, montrée à ce joueur seulement : blocs du chemin dessinés, ticks entre deux passages, taille et hauteur
   # des points, distance du joueur au premier point.

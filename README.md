@@ -25,8 +25,8 @@
 
 Le détecteur :
 
-1. Le plugin lit le monde autour des collectibles (par petits bouts, calcul hors du fil principal) et connaît tous les chemins à pied : escaliers, portes, échelles, eau, sauts, chutes, double saut. La flèche montre le prochain point du vrai chemin, donc le détour et l'entrée, jamais un mur à traverser. Un collectible ajouté est guidé tout seul.
-2. À moins de `detecteur.distances.proche` blocs à marcher, la flèche disparaît et une barre d'action le dit une fois. Tout près, le collectible fait un petit bruit à sa place, jamais à travers un mur ou un plancher.
+1. Le plugin lit le monde autour des collectibles (par petits bouts, calcul hors du fil principal) et connaît tous les chemins à pied : escaliers, portes, échelles, eau, sauts, chutes, double saut (avec la vraie portée d'un double saut, vers le haut comme vers le bas). La flèche suit le vrai chemin, donc le détour et l'entrée, jamais un mur à traverser. En l'air, le chemin ne change pas : un saut ne retourne pas la flèche. Un double saut à faire est annoncé au-dessus d'elle, avec une ligne de points jusqu'à l'endroit où se poser. Un collectible ajouté est guidé tout seul.
+2. À moins de `detecteur.distances.proche` blocs à marcher, c'est la zone de fouille (`detecteur.fouille`) : la flèche s'efface en le disant, un titre invite à fouiller et une barre en haut de l'écran dit si l'on chauffe (tiède, chaud, brûlant), sans donner la direction. En ressortant, la flèche revient. Tout près, le collectible fait un petit bruit à sa place, jamais à travers un mur ou un plancher.
 3. Une fois trouvé, la flèche repart vers le suivant. Le détecteur s'arrête quand la collection est complète ou à la déconnexion.
 4. Un joueur suit un nombre limité de collections par jour (`detecteur.limite`) ; celle du jour se reprend librement.
 
@@ -57,6 +57,7 @@ fleches:
   collectibles:
     cible: "%shcollectibles_cible%"
     texte: "%shcollectibles_fleche%"
+    fin: "%shcollectibles_fin%"
     arrive: 0
     distance-min: 0
 ```
@@ -101,7 +102,8 @@ fleches:
 | `%shcollectibles_zone_<z>%` | Ligne « trouvés 2/3 » d'une zone, vide si elle n'a aucun collectible |
 | `%shcollectibles_zone_trouves_<z>%`, `%shcollectibles_zone_total_<z>%` | Les deux nombres seuls |
 | `%shcollectibles_menu_<c>%` | Ligne de menu du détecteur : activer, arrêter, limite du jour atteinte ou complète |
-| `%shcollectibles_cible%`, `%shcollectibles_fleche%` | Point que la flèche doit montrer (`monde x y z`, vide sinon) et texte au-dessus |
+| `%shcollectibles_cible%`, `%shcollectibles_fleche%` | Chemin que la flèche doit suivre (`monde x y z x y z …` du joueur vers l'avant, vide sinon) et texte au-dessus |
+| `%shcollectibles_fin%` | Texte d'adieu de la flèche dans la zone de fouille, vide ailleurs |
 | `%shcollectibles_collection%` | Collection du détecteur actif |
 
 ## Configuration

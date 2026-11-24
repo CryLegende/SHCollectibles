@@ -93,6 +93,7 @@ final class Expansion extends PlaceholderExpansion {
         return switch (params) {
             case "cible" -> a == null ? "" : a.place;
             case "fleche" -> a == null ? "" : a.text;
+            case "fin" -> a == null ? "" : a.end;
             case "collection" -> a == null ? "" : a.collection.id();
             default -> null;
         };

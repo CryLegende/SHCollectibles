@@ -23,9 +23,9 @@ chat:
   protege-admin: "&7&l« &6&lSH &8&l» &7Collectible &6{collection} {numero}&7, &6/shcollectibles remove &7pour le retirer avant de casser la tête."
 
   # Détecteur
-  detecteur-active: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis ce &abruit&7."
+  detecteur-active: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis fouillez au &abruit&7."
   # Le même pour un joueur limité : {n} collections par jour
-  detecteur-active-limite: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis ce &abruit &8({n} collection par jour)"
+  detecteur-active-limite: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis fouillez au &abruit &8({n} collection par jour)"
   # {liste} : collections déjà suivies aujourd'hui · {heures} {minutes} : attente
   limite: "&7&l« &c&lSH &8&l» &7Vous avez déjà suivi {liste} &7aujourd'hui, détecteur disponible dans &c{heures} h {minutes} min&7."
   detecteur-arrete: "&7&l« &e&lSH &8&l» &7Détecteur {nom} &earrêté&7."
@@ -70,14 +70,29 @@ chat:
   reload-ok: "&7&l« &a&lSH &8&l» &7Configuration de &aSHCollectibles &7rechargée, &a{n} &7collections."
   reload-erreur: "&7&l« &c&lSH &8&l» &7Fichier invalide, rien n'a changé. &c{erreur}"
 
-# Montré une fois par collectible, quand la flèche disparaît
-barre-proche: "{objet} &fdans les environs, &7tendez l'oreille"
+# Zone de fouille : la flèche s'arrête, le joueur cherche. {niveau} : un des niveaux de detecteur.fouille (config.yml).
+fouille:
+  # Titre à l'entrée, une fois par collectible
+  titre: ""
+  sous-titre: "{objet} &fcaché par ici, &efouillez les environs &f!"
+  # Barre en haut de l'écran, tant que le joueur est dans la zone
+  barre: "{objet} &fà trouver &8• {niveau}"
+  niveaux:
+    tiede: "&bTiède"
+    chaud: "&6Chaud"
+    brulant: "&c&lBrûlant"
+  # Barre d'action quand il en ressort (la flèche revient)
+  eloigne: "&7Vous vous éloignez, &fsuivez la flèche"
 
 # Au-dessus de la flèche (%shcollectibles_fleche%). {distance} : blocs à marcher. {hauteur} est rempli par le plugin qui
-# dessine la flèche (plus haut, plus bas). « raccourci » s'ajoute quand une commande fait gagner du chemin.
+# dessine la flèche (plus haut, plus bas). « double-saut » s'ajoute quand un double saut est à faire tout de suite,
+# « raccourci » quand une commande fait gagner du chemin. « fin » remplace le texte quand la flèche s'en va
+# (%shcollectibles_fin%).
 fleche:
   texte: "{objet} &7{distance} m{hauteur}"
+  double-saut: "\n&eDouble saut !"
   raccourci: "\n&8plus court &f/{commande}"
+  fin: "&eTout près !"
 
 # Compte d'une zone (%shcollectibles_zone_<zone>%), par exemple dans le codex. Vide quand il n'y a rien à y trouver.
 zone:
