@@ -180,6 +180,11 @@ final class Commandes implements TabExecutor {
         if (!d.tracked(plugin.today()).isEmpty()) {
             m.send(sender, "info-limite", "joueur", p.getName(), "liste", plugin.detecteur().names(d.tracked(plugin.today())));
         }
+        if (!d.guided(plugin.today()).isEmpty()) {
+            m.send(sender, "info-guides", "joueur", p.getName(), "n", Integer.toString(d.guided(plugin.today()).size()),
+                    "collectibles", Integer.toString(plugin.settings().limit().items()),
+                    "liste", String.join(", ", d.guided(plugin.today()).stream().sorted().toList()));
+        }
         Detecteur.Active a = plugin.detecteur().get(p.getUniqueId());
         if (a == null) {
             m.send(sender, "info-detecteur-arrete", "joueur", p.getName());
@@ -335,6 +340,7 @@ final class Commandes implements TabExecutor {
         }
         UUID id = p.getUniqueId();
         d.track(plugin.today(), Set.of());
+        d.setGuided(plugin.today(), Set.of());
         plugin.joueurs().io("Limite du détecteur de " + p.getName(), () -> plugin.store().untrack(id));
         plugin.messages().send(sender, "limite-rendue", "joueur", p.getName());
         return true;
@@ -403,9 +409,14 @@ final class Commandes implements TabExecutor {
                 int[] jumps = t == null ? new int[3] : Trajet.jumps(r, route.field(), node);
                 m.send(sender, state, "collection", c.id(), "numero", Integer.toString(i.id()), "longueur", t == null ? "-" : Long.toString(Math.round(t.length())),
                         "chutes", Integer.toString(jumps[0]), "sauts", Integer.toString(jumps[1]), "doubles", Integer.toString(jumps[2]),
-                        "lieu", route == null ? "-" : route.end());
+                        "lieu", route == null ? "-" : route.end(), "points", points(plugin.cartes().lurePoints(w, c, i)));
             }
         }
+    }
+
+    /** Points approchés d'un collectible, « - » pendant le calcul. */
+    private static String points(int n) {
+        return n < 0 ? "-" : Integer.toString(n);
     }
 
     private boolean importPlayers(CommandSender sender, String path) {

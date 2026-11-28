@@ -46,8 +46,11 @@ final class Detecteur implements Listener {
                            boolean grounded, boolean covered) {
     }
 
-    /** Chemin trouvé ; « reached » faux : il mène au plus près. */
-    private record Result(Collection.Item item, String world, boolean reached, Trajet path, String shortcut) {
+    /**
+     * Chemin trouvé ; « reached » faux : il mène au plus près. « path » va au collectible (distance, zone de fouille), « shown »
+     * au point approché du joueur (flèche, trace, doubles sauts) : le même sans approximation.
+     */
+    private record Result(Collection.Item item, String world, boolean reached, Trajet path, Trajet shown, String shortcut) {
     }
 
     /** Détecteur d'un joueur. « place », « text » et « end » sont lus par les placeholders depuis n'importe quel fil. */
@@ -65,6 +68,8 @@ final class Detecteur implements Listener {
         volatile boolean onPath;
         /** Niveau de la zone de fouille, -1 hors de la zone. */
         volatile int level = -1;
+        /** Limite du jour atteinte : seuls ces collectibles (« collection/numéro ») sont encore montrés ; null = tous. */
+        volatile Set<String> only;
         private volatile Result result;
         private volatile boolean air;
         final int slot;
@@ -138,15 +143,22 @@ final class Detecteur implements Listener {
             long left = plugin.settings().limit().minutesLeft(now);
             m.send(p, "limite", "n", Integer.toString(plugin.settings().limit().perDay()),
                     "liste", names(d.tracked(plugin.today())), "heures", Long.toString(left / 60), "minutes", Long.toString(left % 60));
+        } else if (exhausted(p, d, c)) {
+            long left = plugin.settings().limit().minutesLeft(LocalDateTime.now());
+            m.send(p, "epuise", "nom", c.coloredName(), "collectibles", Integer.toString(plugin.settings().limit().items()),
+                    "heures", Long.toString(left / 60), "minutes", Long.toString(left % 60));
         } else {
             Active now = new Active(c, slots.incrementAndGet());
             leaveSearch(p, actives.put(p.getUniqueId(), now));
             count(p, now, d, plugin.today());
-            m.send(p, limited(p) ? "detecteur-active-limite" : "detecteur-active", "nom", c.coloredName(),
-                    "n", Integer.toString(plugin.settings().limit().perDay()));
+            int guidedLeft = plugin.settings().limit().itemsLeft(d.guided(plugin.today()).size());
+            String key = !limited(p) ? "detecteur-active" : guidedLeft >= 0 ? "detecteur-active-quota" : "detecteur-active-limite";
+            m.send(p, key, "nom", c.coloredName(),
+                    "n", Integer.toString(plugin.settings().limit().perDay()),
+                    "collectibles", Integer.toString(plugin.settings().limit().items()), "restants", Integer.toString(Math.max(0, guidedLeft)));
             Effets.sound(p, plugin.settings().noise(), p.getLocation());
             p.closeInventory();
-            if (left(p.getWorld().getName(), c, d).isEmpty() && !plugin.settings().otherWorldCommand().isEmpty()) {
+            if (left(p.getWorld().getName(), c, d, null).isEmpty() && !plugin.settings().otherWorldCommand().isEmpty()) {
                 p.performCommand(plugin.settings().otherWorldCommand());
             }
         }
@@ -159,6 +171,47 @@ final class Detecteur implements Listener {
     /** Vrai si le joueur a déjà suivi aujourd'hui autant de collections qu'il peut, sans celle-ci. */
     boolean blocked(Player p, Donnees d, Collection c) {
         return limited(p) && !plugin.settings().limit().allows(d.tracked(plugin.today()), c.id());
+    }
+
+    /**
+     * Vrai si le détecteur a déjà mené le joueur aujourd'hui à tous les collectibles de sa journée, et qu'il les a tous trouvés
+     * dans cette collection : il ne le guide plus avant le jour suivant.
+     */
+    boolean exhausted(Player p, Donnees d, Collection c) {
+        Set<String> guided = d.guided(plugin.today());
+        return limited(p) && plugin.settings().limit().full(guided.size()) && !guidedLeft(c, d, guided);
+    }
+
+    /** Un collectible de la collection où le détecteur a mené le joueur n'est pas encore trouvé. */
+    private static boolean guidedLeft(Collection c, Donnees d, Set<String> guided) {
+        Set<Integer> found = d.read(c.id());
+        for (Collection.Item item : c.items().values()) {
+            if (!found.contains(item.id()) && guided.contains(Donnees.key(c.id(), item.id()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Entrée dans la zone de fouille d'un collectible : il compte dans la journée du joueur (gardé en base). */
+    private void guide(Player p, Active a, Donnees d, LocalDate day) {
+        Limite limit = plugin.settings().limit();
+        Collection.Item item = a.collection.items().get(a.target);
+        if (item == null || limit.items() <= 0 || !limited(p)) {
+            return;
+        }
+        String key = Donnees.key(a.collection.id(), item.id());
+        Set<String> guided = d.guided(day);
+        if (guided.contains(key) || limit.full(guided.size()) || !d.guide(day, key)) {
+            return;
+        }
+        UUID id = p.getUniqueId();
+        String collection = a.collection.id();
+        int number = item.id();
+        plugin.joueurs().io("Enregistrement du détecteur de " + p.getName(), () -> plugin.store().guide(id, day, collection, number));
+        if (limit.full(guided.size() + 1)) {
+            plugin.messages().send(p, "dernier", "objet", a.collection.coloredObject(), "collectibles", Integer.toString(limit.items()));
+        }
     }
 
     /** La collection suivie compte dans la journée du joueur (gardé en base). */
@@ -284,6 +337,24 @@ final class Detecteur implements Listener {
             if (!today.equals(a.day)) {
                 count(p, a, d, today);
             }
+            if (a.near && a.target >= 0) {
+                guide(p, a, d, today);
+            }
+            Set<String> guided = d.guided(today);
+            if (limited(p) && plugin.settings().limit().full(guided.size())) {
+                if (!guidedLeft(a.collection, d, guided)) {
+                    it.remove();
+                    leaveSearch(p, a);
+                    long left = plugin.settings().limit().minutesLeft(LocalDateTime.now());
+                    plugin.messages().send(p, "detecteur-epuise", "nom", a.collection.coloredName(),
+                            "collectibles", Integer.toString(plugin.settings().limit().items()),
+                            "heures", Long.toString(left / 60), "minutes", Long.toString(left % 60));
+                    continue;
+                }
+                a.only = guided;
+            } else {
+                a.only = null;
+            }
             search(p, a);
             noise(p, a, period);
             Location l = p.getLocation();
@@ -377,7 +448,7 @@ final class Detecteur implements Listener {
                 return;
             }
         }
-        bySteps(q, a, left(q.world(), q.collection(), q.data()));
+        bySteps(q, a, left(q.world(), q.collection(), q.data(), a.only));
     }
 
     /** Le collectible au chemin le plus court, et ce chemin ; null si rien n'est connu. */
@@ -390,7 +461,7 @@ final class Detecteur implements Listener {
             return null;
         }
         List<Choix.Candidate> list = new ArrayList<>();
-        for (Collection.Item i : left(q.world(), q.collection(), q.data())) {
+        for (Collection.Item i : left(q.world(), q.collection(), q.data(), q.active().only)) {
             Cartes.Route route = plugin.cartes().route(w, q.collection(), i);
             if (route != null && route.field().reaches(node)) {
                 list.add(new Choix.Candidate(i, route.field().cost(node) + (route.reached() ? 0 : UNREACHED)));
@@ -405,6 +476,15 @@ final class Detecteur implements Listener {
         if (path == null) {
             return null;
         }
+        // Flèche approchée : elle suit le chemin du point de ce joueur, la zone de fouille reste mesurée au collectible
+        Trajet shown = path;
+        Cartes.Route lure = plugin.cartes().lure(w, q.collection(), best.item(), q.id());
+        if (lure != null) {
+            Trajet t = Trajet.from(r, lure.field(), node, q.world(), q.x(), q.y(), q.z(), g);
+            if (t != null) {
+                shown = t;
+            }
+        }
         String shortcut = "";
         double gain = 0;
         for (Guidage.Shortcut s : g.shortcuts()) {
@@ -418,7 +498,7 @@ final class Detecteur implements Listener {
                 }
             }
         }
-        return new Result(best.item(), q.world(), route.reached(), path, shortcut);
+        return new Result(best.item(), q.world(), route.reached(), path, shown, shortcut);
     }
 
     private void byPath(Request q, Active a, Result r) {
@@ -437,12 +517,18 @@ final class Detecteur implements Listener {
             return;
         }
         boolean end = !r.reached() && r.path().length() < cfg.near();
-        show(a, end ? r.item().center().text() : r.path().route(), r.shortcut(), leapSoon(r));
+        show(a, end ? aim(q, r.item()).text() : r.shown().route(), r.shortcut(), leapSoon(r));
     }
 
     /** Vrai si l'élan d'un double saut est assez proche pour l'annoncer. */
     private boolean leapSoon(Result r) {
-        return r.path().leap() != null && r.path().leap().away() <= plugin.settings().guidage().hint().announce();
+        return r.shown().leap() != null && r.shown().leap().away() <= plugin.settings().guidage().hint().announce();
+    }
+
+    /** Où la flèche va tout droit quand aucun chemin n'y mène : le collectible, décalé si la flèche est approchée. */
+    private Lieu aim(Request q, Collection.Item item) {
+        Reglages.Approx ap = plugin.settings().approx();
+        return ap.enabled() ? Leurre.offset(item.center(), q.id(), q.collection().id(), item.id(), ap.spread()) : item.center();
     }
 
     /** Sans chemin connu : étapes de secours, puis droit vers le collectible. */
@@ -470,7 +556,7 @@ final class Detecteur implements Listener {
         if (arrived && Choix.near(a.near && same, a.distance, cfg.near(), cfg.far())) {
             enter(a);
         } else {
-            show(a, (arrived ? item.center() : item.steps().get(a.step)).text(), "", false);
+            show(a, (arrived ? aim(q, item) : item.steps().get(a.step)).text(), "", false);
         }
     }
 
@@ -606,12 +692,12 @@ final class Detecteur implements Listener {
             }
             if (ground) {
                 Particle.DustOptions dust = new Particle.DustOptions(Color.fromRGB(a.collection.trailColor()), g.trail().size());
-                for (Lieu l : r.path().trail()) {
+                for (Lieu l : r.shown().trail()) {
                     p.spawnParticle(Particle.DUST, l.x(), l.y(), l.z(), 1, 0, 0, 0, 0, dust);
                 }
             }
             if (leap && leapSoon(r)) {
-                leap(p, r.path().leap(), g.hint(), new Particle.DustOptions(
+                leap(p, r.shown().leap(), g.hint(), new Particle.DustOptions(
                         Color.fromRGB(g.hint().rgb() >= 0 ? g.hint().rgb() : a.collection.trailColor()), g.hint().size()));
             }
         }
@@ -629,13 +715,14 @@ final class Detecteur implements Listener {
         }
     }
 
-    /** Collectibles pas encore trouvés dans un monde, têtes posées seulement. */
-    private List<Collection.Item> left(String world, Collection c, Donnees d) {
+    /** Collectibles pas encore trouvés dans un monde, têtes posées seulement ; « only » (non null) : parmi ceux-là. */
+    private List<Collection.Item> left(String world, Collection c, Donnees d, Set<String> only) {
         Set<Integer> found = d.read(c.id());
         Set<Collection.Item> absent = missing;
         List<Collection.Item> out = new ArrayList<>();
         for (Collection.Item item : c.items().values()) {
-            if (item.place().world().equals(world) && !found.contains(item.id()) && !absent.contains(item)) {
+            if (item.place().world().equals(world) && !found.contains(item.id()) && !absent.contains(item)
+                    && (only == null || only.contains(Donnees.key(c.id(), item.id())))) {
                 out.add(item);
             }
         }

@@ -26,8 +26,15 @@ chat:
   detecteur-active: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis fouillez au &abruit&7."
   # Le même pour un joueur limité : {n} collections par jour
   detecteur-active-limite: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis fouillez au &abruit &8({n} collection par jour)"
+  # Le même quand le détecteur ne mène qu'à {collectibles} collectibles par jour : {restants} encore aujourd'hui
+  detecteur-active-quota: "&7&l« &a&lSH &8&l» &7Détecteur {nom} &aactivé&7, suivez la &aflèche &7puis fouillez au &abruit &8(encore {restants}/{collectibles} collectibles aujourd'hui)"
   # {liste} : collections déjà suivies aujourd'hui · {heures} {minutes} : attente
   limite: "&7&l« &c&lSH &8&l» &7Vous avez déjà suivi {liste} &7aujourd'hui, détecteur disponible dans &c{heures} h {minutes} min&7."
+  # Limite de collectibles guidés du jour (detecteur.limite.collectibles-par-jour) : refus à l'activation, arrêt après le
+  # dernier trouvé, et avertissement à l'entrée de la zone de fouille du dernier. {heures} {minutes} : attente
+  epuise: "&7&l« &c&lSH &8&l» &7Le détecteur vous a déjà mené à &c{collectibles} collectibles &7aujourd'hui, il revient dans &c{heures} h {minutes} min&7."
+  detecteur-epuise: "&7&l« &e&lSH &8&l» &7Détecteur {nom} &earrêté&7, {collectibles} collectibles guidés aujourd'hui. Il revient dans &e{heures} h {minutes} min&7, cherchez les autres sans lui !"
+  dernier: "&7&l« &6&lSH &8&l» &7Dernier collectible guidé du jour, &6fouillez bien &7!"
   detecteur-arrete: "&7&l« &e&lSH &8&l» &7Détecteur {nom} &earrêté&7."
   detecteur-aucun: "&7&l« &e&lSH &8&l» &7Choisissez une collection dans &e/collections&7."
 
@@ -45,6 +52,7 @@ chat:
   info-detecteur: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur}&7, {nom} &7n°&e{numero} &7à &e{distance} blocs&7, étape &e{etape} &8({lieu})"
   info-detecteur-arrete: "&7&l« &e&lSH &8&l» &7Détecteur de &e{joueur} &7arrêté."
   info-limite: "&7&l« &e&lSH &8&l» &7Suivies aujourd'hui par &e{joueur}&7, {liste}"
+  info-guides: "&7&l« &e&lSH &8&l» &7Collectibles guidés aujourd'hui pour &e{joueur}&7, &e{n}&7/&e{collectibles} &8({liste})"
   limite-rendue: "&7&l« &a&lSH &8&l» &7Limite du jour rendue à &a{joueur}&7."
   viser: "&7&l« &c&lSH &8&l» &7Visez la &ctête &7de plus près."
   deja-collectible: "&7&l« &c&lSH &8&l» &7Cette tête est déjà &c{collection} {numero}&7."
@@ -63,7 +71,8 @@ chat:
   carte: "&7&l« &e&lSH &8&l» &7Carte de &e{monde}&7, &e{cases} &7cases et &e{chemins} &7chemins, faite en &e{secondes} s"
   carte-en-cours: "&7&l« &e&lSH &8&l» &7Carte de &e{monde} &7en cours."
   carte-refaite: "&7&l« &a&lSH &8&l» &7Carte &aen cours &7de calcul."
-  chemin: "&7&l« &e&lSH &8&l» &e{collection} {numero} &7à &e{longueur} blocs &8(chutes {chutes}, sauts {sauts}, doubles sauts {doubles})"
+  # {points} : points approchés de la flèche (detecteur.approximation), 0 = la flèche mène pile au collectible, - = en calcul
+  chemin: "&7&l« &e&lSH &8&l» &e{collection} {numero} &7à &e{longueur} blocs &8(chutes {chutes}, sauts {sauts}, doubles sauts {doubles}, points approchés {points})"
   chemin-partiel: "&7&l« &6&lSH &8&l» &6{collection} {numero} &7pas atteint à pied, chemin de &6{longueur} blocs &7jusqu'au plus près &8({lieu})"
   chemin-aucun: "&7&l« &c&lSH &8&l» &c{collection} {numero} &7sans chemin depuis le départ"
   chemin-calcul: "&7&l« &e&lSH &8&l» &e{collection} {numero} &7en cours de calcul"
@@ -113,5 +122,7 @@ menu:
   # Pour un joueur limité : {n} collections par jour, puis l'attente quand la limite du jour est atteinte
   activer-limite: "&8&o(( {couleur}&oClic Gauche &f&opour activer le {couleur}&odétecteur &f&o({n} par jour) &8&o))"
   limite: "&8&o(( &f&oDétecteur disponible dans &c&o{heures} h {minutes} min &8&o))"
+  # Plus de collectibles guidés aujourd'hui ({collectibles} par jour)
+  epuise: "&8&o(( &f&oDétecteur de retour dans &c&o{heures} h {minutes} min &8&o))"
   arreter: "&8&o(( {couleur}&oClic Gauche &f&opour arrêter le {couleur}&odétecteur &8&o))"
   complete: "&8&o(( &f&oCollection &a&ocomplète &8&o))"

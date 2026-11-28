@@ -134,6 +134,8 @@ final class Expansion extends PlaceholderExpansion {
             key = "menu.complete";
         } else if (a != null && a.collection.id().equals(c.id())) {
             key = "menu.arreter";
+        } else if (d != null && plugin.detecteur().exhausted(p, d, c)) {
+            key = "menu.epuise";
         } else if (d == null || !plugin.detecteur().limited(p) || d.tracked(plugin.today()).contains(c.id())) {
             key = "menu.activer";
         } else {
@@ -141,6 +143,8 @@ final class Expansion extends PlaceholderExpansion {
         }
         long left = limit.minutesLeft(LocalDateTime.now());
         return plugin.messages().text(key, "couleur", c.color(), "nom", c.coloredName(), "objet", c.coloredObject(),
-                "n", Integer.toString(limit.perDay()), "heures", Long.toString(left / 60), "minutes", Long.toString(left % 60));
+                "n", Integer.toString(limit.perDay()), "heures", Long.toString(left / 60), "minutes", Long.toString(left % 60),
+                "collectibles", Integer.toString(limit.items()),
+                "restants", Integer.toString(Math.max(0, limit.itemsLeft(d == null ? 0 : d.guided(plugin.today()).size()))));
     }
 }

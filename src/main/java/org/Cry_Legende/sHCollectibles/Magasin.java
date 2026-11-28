@@ -45,6 +45,10 @@ final class Magasin {
                     + "serveur VARCHAR(16) NOT NULL, uuid CHAR(36) NOT NULL, jour DATE NOT NULL, collection VARCHAR(48) NOT NULL, "
                     + "PRIMARY KEY (serveur, uuid, jour, collection), KEY uuid (uuid)"
                     + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin");
+            st.execute("CREATE TABLE IF NOT EXISTS shcollectibles_guidees ("
+                    + "serveur VARCHAR(16) NOT NULL, uuid CHAR(36) NOT NULL, jour DATE NOT NULL, collection VARCHAR(48) NOT NULL, numero INT NOT NULL, "
+                    + "PRIMARY KEY (serveur, uuid, jour, collection, numero), KEY uuid (uuid)"
+                    + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin");
             st.execute("CREATE TABLE IF NOT EXISTS shcollectibles_joueurs ("
                     + "uuid CHAR(36) NOT NULL PRIMARY KEY, nom VARCHAR(16) NOT NULL, KEY nom (nom)"
                     + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -87,8 +91,34 @@ final class Magasin {
                 }
                 d.track(day, tracked);
             }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT collection, numero FROM shcollectibles_guidees WHERE serveur = ? AND uuid = ? AND jour = ?")) {
+                ps.setString(1, server);
+                ps.setString(2, id.toString());
+                ps.setString(3, day.toString());
+                Set<String> guided = new HashSet<>();
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        guided.add(Donnees.key(rs.getString(1), rs.getInt(2)));
+                    }
+                }
+                d.setGuided(day, guided);
+            }
         }
         return d;
+    }
+
+    /** Collectible vers lequel le détecteur a mené le joueur ce jour-là. */
+    void guide(UUID id, LocalDate day, String collection, int number) throws SQLException {
+        try (Connection c = source.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "INSERT IGNORE INTO shcollectibles_guidees (serveur, uuid, jour, collection, numero) VALUES (?, ?, ?, ?, ?)")) {
+            ps.setString(1, server);
+            ps.setString(2, id.toString());
+            ps.setString(3, day.toString());
+            ps.setString(4, collection);
+            ps.setInt(5, number);
+            ps.executeUpdate();
+        }
     }
 
     /** Vrai si le collectible n'était pas encore enregistré : lui seul donne la récompense. */
@@ -136,22 +166,27 @@ final class Magasin {
         }
     }
 
+    /** Rend la journée : collections suivies et collectibles guidés. */
     void untrack(UUID id) throws SQLException {
-        try (Connection c = source.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "DELETE FROM shcollectibles_suivies WHERE serveur = ? AND uuid = ?")) {
-            ps.setString(1, server);
-            ps.setString(2, id.toString());
-            ps.executeUpdate();
+        for (String table : List.of("shcollectibles_suivies", "shcollectibles_guidees")) {
+            try (Connection c = source.getConnection(); PreparedStatement ps = c.prepareStatement(
+                    "DELETE FROM " + table + " WHERE serveur = ? AND uuid = ?")) {
+                ps.setString(1, server);
+                ps.setString(2, id.toString());
+                ps.executeUpdate();
+            }
         }
     }
 
     /** Jours passés : ils ne servent plus. */
     void purgeTracked(LocalDate today) throws SQLException {
-        try (Connection c = source.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "DELETE FROM shcollectibles_suivies WHERE serveur = ? AND jour < ?")) {
-            ps.setString(1, server);
-            ps.setString(2, today.toString());
-            ps.executeUpdate();
+        for (String table : List.of("shcollectibles_suivies", "shcollectibles_guidees")) {
+            try (Connection c = source.getConnection(); PreparedStatement ps = c.prepareStatement(
+                    "DELETE FROM " + table + " WHERE serveur = ? AND jour < ?")) {
+                ps.setString(1, server);
+                ps.setString(2, today.toString());
+                ps.executeUpdate();
+            }
         }
     }
 

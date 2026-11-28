@@ -9,8 +9,9 @@
 # Le détecteur guide un joueur vers le collectible au chemin le plus court : le plugin connaît le monde (section
 # « guidage ») et suit le vrai trajet à pied, avec ses détours, escaliers, portes, échelles et doubles sauts. La flèche suit
 # le chemin jusqu'à la zone de fouille (section « fouille ») : là, elle laisse la place à une barre qui dit si l'on chauffe,
-# et le collectible fait un petit bruit quand il est proche à pied. Un collectible ajouté est guidé tout seul. Un joueur ne
-# suit qu'un nombre limité de collections par jour.
+# et le collectible fait un petit bruit quand il est proche à pied. Un collectible ajouté est guidé tout seul. La flèche
+# ne mène pas pile au collectible mais à quelques blocs de lui (section « approximation »). Un joueur ne suit qu'un nombre
+# limité de collections par jour, et le détecteur ne le mène qu'à un nombre limité de collectibles par jour.
 #
 # Fichiers : config.yml (ce fichier), messages.yml (tous les textes), zones.yml (compte des collectibles par zone),
 # collections/ (têtes, récompenses, effets). Tout se change sans toucher au code, puis /shcollectibles reload.
@@ -136,19 +137,37 @@ detecteur:
 
   # Collections différentes qu'un joueur peut suivre par jour (0 = sans limite) ; celle du jour se reprend librement. Le
   # jour change à « heure » (0 à 23, heure du serveur).
+  # « collectibles-par-jour » : collectibles vers lesquels le détecteur mène un joueur par jour (0 = sans limite). Un
+  # collectible compte quand le joueur entre dans sa zone de fouille, une seule fois par jour. Limite atteinte : le
+  # détecteur finit de guider vers ceux qui ont compté, puis s'arrête jusqu'au jour suivant. Sans lui, on peut toujours
+  # chercher et trouver les autres.
   limite:
     par-jour: 1
+    collectibles-par-jour: 3
     heure: 0
 
   # Distances en blocs à marcher.
   distances:
     # La zone de fouille commence à moins de « proche » blocs du collectible, la flèche revient au-delà de « loin ».
-    proche: 22
-    loin: 28
+    proche: 35
+    loin: 42
     # La cible change pour un collectible plus proche seulement s'il l'est d'au moins « changement » blocs.
     changement: 20
     # Un déplacement plus grand d'un coup est une téléportation : le chemin est repris de zéro.
     teleportation: 30
+
+  # Flèche approchée : elle mène chaque joueur vers un point à « ecart-min » à « ecart » blocs à plat du collectible (et à
+  # « hauteur » blocs de haut au plus), d'où l'on rejoint le collectible en « marche-max » blocs à pied au plus. Quand la
+  # flèche s'en va, continuer tout droit ne mène donc pas pile au collectible. « points » : nombre de ces points par
+  # collectible, pris dans des directions bien écartées ; chaque joueur tombe toujours sur le même (relancer le détecteur ne
+  # change rien). La zone de fouille, la barre et le bruit restent mesurés au vrai collectible. ecart 0 = la flèche mène pile
+  # au collectible. Chaque point garde un chemin en mémoire (environ 0,3 Mo pour une carte de 100 000 cases).
+  approximation:
+    ecart: 5
+    ecart-min: 3
+    hauteur: 4
+    marche-max: 12
+    points: 3
 
   # Zone de fouille : la flèche s'en va (texte fleche.fin), un titre le dit et une barre en haut de l'écran dit si l'on
   # chauffe. Textes : section fouille de messages.yml.

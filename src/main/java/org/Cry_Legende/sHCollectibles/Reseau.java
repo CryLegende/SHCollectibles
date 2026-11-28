@@ -331,6 +331,30 @@ final class Reseau {
         return out;
     }
 
+    /** Cases à « least » à « spread » blocs à plat d'une tête, et à « height » blocs de haut au plus. */
+    List<Integer> around(Lieu head, double least, double spread, int height) {
+        int hx = (int) Math.floor(head.x());
+        int hy = (int) Math.floor(head.y());
+        int hz = (int) Math.floor(head.z());
+        int r = (int) Math.ceil(spread);
+        List<Integer> out = new ArrayList<>();
+        for (int x = hx - r; x <= hx + r; x++) {
+            for (int z = hz - r; z <= hz + r; z++) {
+                double d = Math.hypot(x - hx, z - hz);
+                if (d < least || d > spread) {
+                    continue;
+                }
+                for (int y = hy - height - 1; y <= hy + height; y++) {
+                    int node = map.inside(x, y, z) ? index(map.cell(x, y, z)) : -1;
+                    if (node >= 0) {
+                        out.add(node);
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
     /** Case du réseau la plus proche d'une tête qu'aucun chemin n'atteint ; -1 si le réseau est vide. */
     int closest(Lieu head) {
         int best = -1;

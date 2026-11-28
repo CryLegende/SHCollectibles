@@ -43,6 +43,8 @@ final class Cartes {
         volatile boolean building;
         volatile boolean again;
         private final Map<String, Route> routes = new ConcurrentHashMap<>();
+        /** Cases des points approchés de chaque collectible (detecteur.approximation) ; vide : aucun. */
+        private final Map<String, int[]> lures = new ConcurrentHashMap<>();
         private final Set<String> pending = ConcurrentHashMap.newKeySet();
         private int[] bounds = new int[0];
 
@@ -125,6 +127,7 @@ final class Cartes {
         worlds.values().forEach(m -> {
             m.network = null;
             m.routes.clear();
+            m.lures.clear();
         });
         worlds.clear();
     }
@@ -140,6 +143,7 @@ final class Cartes {
         for (Map.Entry<String, int[]> en : wanted.entrySet()) {
             Monde m = worlds.computeIfAbsent(en.getKey(), Monde::new);
             m.routes.clear();
+            m.lures.clear();
             m.pending.clear();
             if (changed || m.network == null || !java.util.Arrays.equals(m.bounds, en.getValue())) {
                 m.bounds = en.getValue();
@@ -343,6 +347,7 @@ final class Cartes {
         Reseau network = Reseau.build(map, from, g.links(), m.name);
         m.network = network;
         m.routes.clear();
+        m.lures.clear();
         m.pending.clear();
         m.building = false;
         m.seconds = (System.currentTimeMillis() - started) / 1000;
@@ -390,5 +395,83 @@ final class Cartes {
             });
         }
         return r;
+    }
+
+    /**
+     * Chemins vers le point approché de ce joueur pour ce collectible ; null tant qu'ils ne sont pas calculés, quand la flèche
+     * n'est pas approchée, ou quand aucun point ne convient (la flèche mène alors au collectible).
+     */
+    Route lure(Monde m, Collection c, Collection.Item i, java.util.UUID player) {
+        Reglages.Approx ap = plugin.settings().approx();
+        Route real = ap.enabled() ? route(m, c, i) : null;
+        Reseau network = m.network;
+        if (real == null || !real.reached() || network == null) {
+            return null;
+        }
+        String key = c.id() + "/" + i.id();
+        int[] spots = spots(m, network, real, c, i, ap);
+        if (spots == null || spots.length == 0) {
+            return null;
+        }
+        int k = Leurre.index(player, c.id(), i.id(), spots.length);
+        String lk = key + "#" + k;
+        Route r = m.routes.get(lk);
+        if (r == null && m.pending.add(lk)) {
+            int node = spots[k];
+            run(() -> {
+                Route made = new Route(network.field(List.of(node)), true, network.x(node) + " " + network.y(node) + " " + network.z(node));
+                if (m.network == network) {
+                    m.routes.put(lk, made);
+                }
+                m.pending.remove(lk);
+            });
+        }
+        return r;
+    }
+
+    /** Nombre de points approchés d'un collectible ; -1 tant qu'ils ne sont pas calculés (le calcul est lancé). */
+    int lurePoints(Monde m, Collection c, Collection.Item i) {
+        Reglages.Approx ap = plugin.settings().approx();
+        Route real = ap.enabled() ? route(m, c, i) : null;
+        Reseau network = m.network;
+        if (!ap.enabled()) {
+            return 0;
+        }
+        if (real == null || network == null) {
+            return -1;
+        }
+        int[] spots = real.reached() ? spots(m, network, real, c, i, ap) : new int[0];
+        return spots == null ? -1 : spots.length;
+    }
+
+    /** Cases des points approchés ; null tant qu'elles ne sont pas calculées (le calcul est lancé). */
+    private int[] spots(Monde m, Reseau network, Route real, Collection c, Collection.Item i, Reglages.Approx ap) {
+        String key = c.id() + "/" + i.id();
+        int[] spots = m.lures.get(key);
+        if (spots == null && m.pending.add(key + "#")) {
+            run(() -> {
+                int[] made = lures(network, real, c, i, ap);
+                if (m.network == network) {
+                    m.lures.put(key, made);
+                }
+                m.pending.remove(key + "#");
+            });
+        }
+        return spots;
+    }
+
+    /** Points approchés d'un collectible : autour de lui, d'où il est à peu de pas, mais pas d'où on le clique déjà. */
+    private static int[] lures(Reseau network, Route real, Collection c, Collection.Item i, Reglages.Approx ap) {
+        Lieu head = i.center();
+        List<Leurre.Spot> spots = new ArrayList<>();
+        for (int node : network.around(i.place(), ap.least(), ap.spread(), ap.height())) {
+            if (!real.field().reaches(node) || real.field().cost(node) <= 0 || real.field().cost(node) > ap.walk()) {
+                continue;
+            }
+            double dx = network.x(node) + 0.5 - head.x();
+            double dz = network.z(node) + 0.5 - head.z();
+            spots.add(new Leurre.Spot(node, Math.atan2(dz, dx), Math.hypot(dx, dz)));
+        }
+        return Leurre.pick(spots, ap.points(), ap.spread(), Leurre.seed(c.id(), i.id()));
     }
 }

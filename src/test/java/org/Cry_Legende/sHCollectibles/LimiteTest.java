@@ -29,6 +29,22 @@ class LimiteTest {
     }
 
     @Test
+    void collectiblesGuidesParJour() {
+        Limite l = new Limite(1, 0, 3);
+        assertTrue(l.limited());
+        assertFalse(l.full(2));
+        assertTrue(l.full(3));
+        assertEquals(1, l.itemsLeft(2));
+        assertEquals(0, l.itemsLeft(5));
+        assertFalse(new Limite(1, 0, 0).full(50));
+        assertEquals(-1, new Limite(1, 0, 0).itemsLeft(2));
+        // Sans limite de collections, celle des collectibles compte encore
+        Limite items = new Limite(0, 0, 3);
+        assertTrue(items.limited());
+        assertTrue(items.allows(Set.of("Baies", "Cuivres"), "Orbes"));
+    }
+
+    @Test
     void leJourChangeALHeureReglee() {
         LocalDateTime night = LocalDateTime.of(2026, 11, 24, 3, 30);
         assertEquals(LocalDate.of(2026, 11, 24), new Limite(1, 0).day(night));
